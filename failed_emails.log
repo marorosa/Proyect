@@ -1,0 +1,54 @@
+2026-05-22T21:09:02.129744 | kenny.david20valencia@gmail.com | subject: ¡Bienvenido a Sistema de Gestión de PQRS!
+<html>
+            <body style="font-family: Arial, sans-serif; background-color: #f5f5f5; padding: 20px;">
+                <div style="max-width: 600px; margin: 0 auto; background-color: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+                    <h1 style="color: #1e40af; text-align: center;">¡Bienvenido!</h1>
+                    <p style="color: #333; font-size: 16px;">Hola,</p>
+                    <p style="color: #333; font-size: 16px;">Tu registro en <strong>Sistema de Gestión de PQRS</strong> ha sido exitoso. A continuación, encontrarás tus datos de acceso:</p>
+                    
+                    <div style="background-color: #f0f7ff; padding: 15px; border-left: 4px solid #1e40af; margin: 20px 0; border-radius: 5px;">
+                        <p style="margin: 5px 0;"><strong>📧 Correo:</strong> <code>kenny.david20valencia@gmail.com</code></p>
+                    </div>
+                    
+                    <p style="color: #333; font-size: 16px;">Para iniciar sesión, ingresa a:</p>
+                    <p style="text-align: center; margin: 20px 0;">
+                        <a href="http://localhost:3000/login" style="background-color: #1e40af; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold;">Ir a Iniciar Sesión</a>
+                    </p>
+                    
+                    <hr style="border: 1px solid #ddd; margin: 20px 0;">
+                    <p style="color: #666; font-size: 14px;"><strong>Recuerda:</strong> Nunca compartas tu contraseña con terceros. El equipo de soporte nunca te pedirá tu contraseña.</p>
+                    <p style="color: #666; font-size: 14px;">Si tienes preguntas o problemas, contacta a nuestro equipo de soporte.</p>
+                    <p style="text-align: center; color: #999; font-size: 12px; margin-top: 30px;">© 2026 Sistema de Gestión de PQRS. Todos los derechos reservados.</p>
+                </div>
+            </body>
+        </html>
+
+---
+2026-05-22T21:24:03.983449 | thacrask@gmail.com | subject: ¡Bienvenido a Sistema de Gestión de PQRS!
+
+        <html>
+            <body style="font-family: Arial, sans-serif; background-color: #f5f5f5; padding: 20px;">
+                <div style="max-width: 600px; margin: 0 auto; background-color: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+                    <h1 style="color: #1e40af; text-align: center;">¡Bienvenido!</h1>
+                    <p style="color: #333; font-size: 16px;">Hola,</p>
+                    <p style="color: #333; font-size: 16px;">Tu registro en <strong>Sistema de Gestión de PQRS</strong> ha sido exitoso. A continuación, encontrarás tus datos de acceso:</p>
+                    
+                    <div style="background-color: #f0f7ff; padding: 15px; border-left: 4px solid #1e40af; margin: 20px 0; border-radius: 5px;">
+                        <p style="margin: 5px 0;"><strong>📧 Correo:</strong> <code>thacrask@gmail.com</code></p>
+                    </div>
+                    
+                    <p style="color: #333; font-size: 16px;">Para iniciar sesión, ingresa a:</p>
+                    <p style="text-align: center; margin: 20px 0;">
+                        <a href="http://localhost:3000/login" style="background-color: #1e40af; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold;">Ir a Iniciar Sesión</a>
+                    </p>
+                    
+                    <hr style="border: 1px solid #ddd; margin: 20px 0;">
+                    <p style="color: #666; font-size: 14px;"><strong>Recuerda:</strong> Nunca compartas tu contraseña con terceros. El equipo de soporte nunca te pedirá tu contraseña.</p>
+                    <p style="color: #666; font-size: 14px;">Si tienes preguntas o problemas, contacta a nuestro equipo de soporte.</p>
+                    <p style="text-align: center; color: #999; font-size: 12px; margin-top: 30px;">© 2026 Sistema de Gestión de PQRS. Todos los derechos reservados.</p>
+                </div>
+            </body>
+        </html>
+        
+
+---
