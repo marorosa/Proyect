@@ -23,6 +23,8 @@ class Usuario(rx.Model, table=True):
     ciudad: Optional[str] = None
     etnia: Optional[str] = None
     persona_vulnerable: Optional[str] = None
+    acepta_notificaciones: bool = False
+    acepta_politica_datos: bool = False
 
 class Solicitud(rx.Model, table=True):
     "Tabla de solicitudes PQRS"

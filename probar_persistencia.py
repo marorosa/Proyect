@@ -9,7 +9,8 @@ sys.path.append(os.path.dirname(__file__))
 from sqlmodel import create_engine, Session
 from sqlalchemy import text
 from autenticacion.usuario_model import Usuario, Solicitud
-from datetime import datetime
+from datetime import datetime, timedelta
+from notificaciones import notificar_solicitud_creada, notificar_cambio_estado
 
 # Configurar la base de datos
 DATABASE_URL = "sqlite:///reflex.db"
@@ -54,6 +55,28 @@ def probar_persistencia():
         print(f"  Asunto: {nueva_solicitud.asunto}")
         print(f"  Estado: {nueva_solicitud.estado}")
 
+        # Enviar notificación al crear la solicitud (ejemplo)
+        try:
+            fecha_creacion = nueva_solicitud.fecha.strftime("%d/%m/%Y %H:%M")
+            # Calcular fecha de vencimiento simple (ejemplo: +15 días)
+            fecha_vencimiento = (nueva_solicitud.fecha + timedelta(days=15)).strftime("%d/%m/%Y")
+            correo_usuario = usuario.email if getattr(usuario, 'email', None) else None
+            if correo_usuario:
+                res = notificar_solicitud_creada(
+                    nombre_solicitante=usuario.nombres or usuario.email,
+                    correo_solicitante=correo_usuario,
+                    numero_solicitud=nueva_solicitud.radicado,
+                    tipo_pqrs=nueva_solicitud.tipo_solicitud,
+                    fecha_creacion=fecha_creacion,
+                    fecha_vencimiento=fecha_vencimiento,
+                    correos_adicionales=None
+                )
+                print(f"→ Notificación de creación enviada: {res}")
+            else:
+                print("→ No se envió notificación: usuario no tiene email registrado")
+        except Exception as e:
+            print(f"→ Error enviando notificación de creación: {e}")
+
     print("\n=== VERIFICACIÓN DE CARGA ===")
 
     # Verificar que se puede cargar la solicitud
@@ -76,6 +99,27 @@ def probar_persistencia():
             estado_anterior = solicitud.estado
             solicitud.estado = "En proceso"
             session.commit()
+
+            # Enviar notificación de cambio de estado (ejemplo)
+            try:
+                correo_usuario = usuario.email if getattr(usuario, 'email', None) else None
+                if correo_usuario:
+                    fecha_cambio = datetime.now().strftime("%d/%m/%Y %H:%M")
+                    res2 = notificar_cambio_estado(
+                        nombre_solicitante=usuario.nombres or usuario.email,
+                        correo_solicitante=correo_usuario,
+                        numero_solicitud=solicitud.radicado,
+                        estado_anterior=estado_anterior,
+                        estado_nuevo=solicitud.estado,
+                        fecha_cambio=fecha_cambio,
+                        observaciones="Actualizado por script de prueba",
+                        correos_adicionales=None
+                    )
+                    print(f"→ Notificación de cambio enviada: {res2}")
+                else:
+                    print("→ No se envió notificación de cambio: usuario no tiene email registrado")
+            except Exception as e:
+                print(f"→ Error enviando notificación de cambio: {e}")
 
             print(f"✓ Solicitud {solicitud.id} editada:")
             print(f"  Estado anterior: {estado_anterior}")

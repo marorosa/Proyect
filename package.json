@@ -1,0 +1,11 @@
+{
+  "name": "pqrs-frontend",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "@mui/material": "^5.14.0",
+    "@mui/icons-material": "^5.14.0",
+    "@emotion/react": "^11.11.0",
+    "@emotion/styled": "^11.11.0"
+  }
+}

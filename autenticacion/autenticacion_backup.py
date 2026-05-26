@@ -1,7 +1,7 @@
 """Sistema de Gestión de PQRS para Empresas Públicas - Sprint 1: Registro de Ciudadanos"""
 import re
 import datetime
-from datetime import datetime
+from datetime import datetime, timedelta
 import bcrypt
 import base64
 import uuid
@@ -18,6 +18,7 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from dotenv import load_dotenv
+from notificaciones import notificar_solicitud_creada, notificar_cambio_estado
 # Carpeta donde se guardarán los archivos subidos por los usuarios
 UPLOAD_DIR = os.path.join(os.getcwd(), "uploads")
 from typing import List, Dict
@@ -673,6 +674,24 @@ class State(rx.State):
                     solicitud_obj.estado = "Actualizada"
                     session.add(solicitud_obj)
                     session.commit()
+                # Enviar notificación de cambio de estado (si hay correo disponible)
+                try:
+                    correo_dest = self.email_actual or self.correo
+                    if correo_dest and isinstance(correo_dest, str) and "@" in correo_dest:
+                        fecha_cambio = datetime.now().strftime("%d/%m/%Y %H:%M")
+                        notificar_cambio_estado(
+                            nombre_solicitante=getattr(self, 'nombres', correo_dest) or correo_dest,
+                            correo_solicitante=correo_dest,
+                            numero_solicitud=solicitud_obj.radicado,
+                            estado_anterior="(anterior)",
+                            estado_nuevo=solicitud_obj.estado,
+                            fecha_cambio=fecha_cambio,
+                            observaciones="Actualizada desde interfaz",
+                            correos_adicionales=None
+                        )
+                except Exception:
+                    pass
+
                 self.solicitud_mensaje = "Solicitud actualizada con éxito."
                 self.editar_solicitud_id = 0
                 self.limpiar_formulario_solicitud(keep_message=True)
@@ -699,6 +718,24 @@ class State(rx.State):
                 )
                 session.add(solicitud_obj)
                 session.commit()
+            # Enviar notificación de creación (si hay correo disponible)
+            try:
+                correo_dest = self.email_actual or self.correo
+                if correo_dest and isinstance(correo_dest, str) and "@" in correo_dest:
+                    fecha_creacion = solicitud_obj.fecha.strftime("%d/%m/%Y %H:%M")
+                    fecha_vencimiento = (solicitud_obj.fecha + datetime.timedelta(days=15)).strftime("%d/%m/%Y")
+                    notificar_solicitud_creada(
+                        nombre_solicitante=getattr(self, 'nombres', correo_dest) or correo_dest,
+                        correo_solicitante=correo_dest,
+                        numero_solicitud=solicitud_obj.radicado,
+                        tipo_pqrs=solicitud_obj.tipo_solicitud,
+                        fecha_creacion=fecha_creacion,
+                        fecha_vencimiento=fecha_vencimiento,
+                        correos_adicionales=None
+                    )
+            except Exception:
+                pass
+
             self.solicitud_mensaje = "Solicitud registrada correctamente."
             self.limpiar_formulario_solicitud(keep_message=True)
             self.cargar_solicitudes()

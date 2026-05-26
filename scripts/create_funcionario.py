@@ -15,6 +15,8 @@ def main():
     parser.add_argument("--direccion", default="", help="Dirección")
     parser.add_argument("--departamento", default="", help="Departamento")
     parser.add_argument("--ciudad", default="", help="Ciudad")
+    parser.add_argument("--acepta-notificaciones", type=int, choices=[0, 1], default=1, help="Acepta notificaciones (0 o 1)")
+    parser.add_argument("--acepta-politica-datos", type=int, choices=[0, 1], default=1, help="Acepta política de datos (0 o 1)")
     parser.add_argument("--db", default="reflex.db", help="Ruta del archivo SQLite de la aplicación")
     args = parser.parse_args()
 
@@ -30,7 +32,7 @@ def main():
             return
 
         cur.execute(
-            "INSERT INTO usuario (email, Contraseña, rol, is_active, Fecha_de_creacion, tipo_identificacion, numero_identificacion, nombres, apellidos, genero, direccion, telefono, departamento, ciudad) VALUES (?, ?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO usuario (email, Contraseña, rol, is_active, Fecha_de_creacion, tipo_identificacion, numero_identificacion, nombres, apellidos, genero, direccion, telefono, departamento, ciudad, acepta_notificaciones, acepta_politica_datos) VALUES (?, ?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 args.email,
                 hashed,
@@ -45,6 +47,8 @@ def main():
                 args.telefono,
                 args.departamento,
                 args.ciudad,
+                args.acepta_notificaciones,
+                args.acepta_politica_datos,
             ),
         )
         conn.commit()

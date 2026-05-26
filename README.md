@@ -164,6 +164,20 @@ Este proyecto implementa un sistema web de gestión de PQRS (Peticiones, Quejas,
 - **Plantilla Personalizada:** Diseño profesional con datos del usuario.
 - **Configuración SMTP:** Integración con Gmail usando credenciales seguras.
 
+### 📨 Servicio de Email
+El servicio de email se activa cuando un usuario se registra o se crea un funcionario desde el sistema. El flujo de envío es:
+1. Se intenta enviar por **SMTP** si se configura `EMAIL_SENDER` y `EMAIL_PASSWORD`.
+2. Si falla o no está disponible, se intenta con **SendGrid** usando `SENDGRID_API_KEY`.
+3. Si ambos métodos fallan, el mensaje se guarda en `failed_emails.log` para reintentos manuales.
+
+Variables de entorno importantes:
+- `EMAIL_SENDER`: Correo remitente.
+- `EMAIL_PASSWORD`: Contraseña o app password del remitente.
+- `SMTP_SERVER`: Servidor SMTP (por defecto `smtp.gmail.com`).
+- `SMTP_PORT`: Puerto SMTP (por defecto `587`).
+- `SENDGRID_API_KEY`: Clave de API de SendGrid para fallback.
+- `EMPRESA_NOMBRE`: Nombre que aparecerá en el correo de bienvenida.
+
 ### 🎨 Interfaz de Usuario
 - **Diseño Responsivo:** Compatible con dispositivos móviles y desktop.
 - **Navegación Intuitiva:** Barra de navegación fija con enlaces claros.
