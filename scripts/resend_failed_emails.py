@@ -5,7 +5,7 @@ Formato esperado en failed_emails.log (generado por la app):
 Uso:
   python scripts/resend_failed_emails.py
 
-El script intenta SendGrid si encuentra `SENDGRID_API_KEY` en el .env;
+El script intenta Resend si encuentra `RESEND_API_KEY` en el .env;
 si no, intenta SMTP usando `EMAIL_SENDER` + `EMAIL_PASSWORD`.
 Si un correo se envía con éxito se elimina del log; los fallos se reescriben.
 """
@@ -40,20 +40,24 @@ def send_via_smtp(from_email: str, password: str, to_email: str, subject: str, h
         return False
 
 
-def send_via_sendgrid(api_key: str, from_email: str, to_email: str, subject: str, html: str) -> bool:
+def send_via_resend(api_key: str, from_email: str, to_email: str, subject: str, html: str) -> bool:
+    """Intenta enviar el correo vía Resend API usando requests."""
     try:
         import requests
         payload = {
-            "personalizations": [{"to": [{"email": to_email}]}],
-            "from": {"email": from_email},
+            "from": from_email,
+            "to": [to_email],
             "subject": subject,
-            "content": [{"type": "text/html", "value": html}],
+            "html": html
         }
-        headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
-        resp = requests.post("https://api.sendgrid.com/v3/mail/send", json=payload, headers=headers, timeout=10)
-        return resp.status_code in (200, 202)
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        }
+        resp = requests.post("https://api.resend.com/emails", json=payload, headers=headers, timeout=10)
+        return resp.status_code in (200, 201, 202)
     except Exception as e:
-        print("SendGrid send error:", e)
+        print("Resend send error:", e)
         return False
 
 
@@ -100,23 +104,24 @@ def main():
 
     print(f"Encontradas {len(entries)} entradas para reintentar.")
 
-    sendgrid_key = os.getenv("SENDGRID_API_KEY")
+    resend_key = os.getenv("RESEND_API_KEY")
     email_sender = os.getenv("EMAIL_SENDER", "enlacepqrs1755@gmail.com")
     email_password = os.getenv("EMAIL_PASSWORD")
 
     remaining = []
-    for e in entries:
+    success_indices = []
+    for idx, e in enumerate(entries):
         to = e["to"]
         subj = e["subject"]
         html = e["html"]
         sent = False
-        # Prefer SendGrid if available
-        if sendgrid_key:
-            print(f"Intentando SendGrid -> {to}")
-            sent = send_via_sendgrid(sendgrid_key, email_sender, to, subj, html)
+        # Prefer Resend if available
+        if resend_key:
+            print(f"Intentando Resend -> {to}")
+            sent = send_via_resend(resend_key, email_sender, to, subj, html)
             if sent:
-                print("Enviado vía SendGrid:", to)
-                time.sleep(0.5)
+                print("Enviado vía Resend:", to)
+                success_indices.append(idx)
                 continue
         # Else try SMTP if password present
         if email_password:

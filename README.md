@@ -165,9 +165,9 @@ Este proyecto implementa un sistema web de gestión de PQRS (Peticiones, Quejas,
 - **Configuración SMTP:** Integración con Gmail usando credenciales seguras.
 
 ### 📨 Servicio de Email
-El servicio de email se activa cuando un usuario se registra o se crea un funcionario desde el sistema. El flujo de envío es:
-1. Se intenta enviar por **SMTP** si se configura `EMAIL_SENDER` y `EMAIL_PASSWORD`.
-2. Si falla o no está disponible, se intenta con **SendGrid** usando `SENDGRID_API_KEY`.
+El sistema de correos intenta diferentes métodos en orden de prioridad:
+1. **SMTP Directo** (Recomendado): Se intenta primero usando las variables `SMTP_SERVER`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD` (útil para contraseñas de aplicación de Gmail o servidores privados).
+2. Si falla o no está disponible, se intenta con **Resend** usando la llave `RESEND_API_KEY`.
 3. Si ambos métodos fallan, el mensaje se guarda en `failed_emails.log` para reintentos manuales.
 
 Variables de entorno importantes:
@@ -175,7 +175,7 @@ Variables de entorno importantes:
 - `EMAIL_PASSWORD`: Contraseña o app password del remitente.
 - `SMTP_SERVER`: Servidor SMTP (por defecto `smtp.gmail.com`).
 - `SMTP_PORT`: Puerto SMTP (por defecto `587`).
-- `SENDGRID_API_KEY`: Clave de API de SendGrid para fallback.
+- `RESEND_API_KEY`: Clave de API de Resend para fallback.
 - `EMPRESA_NOMBRE`: Nombre que aparecerá en el correo de bienvenida.
 
 ### 🎨 Interfaz de Usuario
