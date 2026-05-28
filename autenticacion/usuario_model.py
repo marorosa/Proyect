@@ -41,6 +41,7 @@ class Solicitud(rx.Model, table=True):
     estado: str = "Radicada"
     respuesta: Optional[str] = None
     fecha: datetime = Field(default_factory=datetime.now)
+    fecha_respuesta: Optional[datetime] = None
     creado_por: Optional[str] = None
     usuario_id: Optional[int] = Field(default=None, foreign_key="usuario.id")
     

@@ -40,40 +40,24 @@ La gráfica es 100% dinámica, sin simulaciones, y se calcula en tiempo real con
    * **Valle/Línea Plana en Cero (Baja):** La gráfica baja a `0` si los funcionarios son ultra-eficientes. Si un ciudadano radica una solicitud hoy y el funcionario la responde y cierra hoy mismo, el tiempo de demora es de `0` días hábiles.
    * **Días sin Actividad:** Si en un día específico del mes no se cerró *ninguna* solicitud, el valor de ese día caerá a `0`, indicando que no hubo tiempos de demora registrados porque no hubo respuestas.
 
-## Envío de correos con Resend
+## Envío de correos con SMTP
 
-A partir de la versión actual, el proyecto utiliza **Resend** como proveedor de email en lugar de SendGrid. Todo el flujo de notificaciones sigue este orden de prioridad:
+Todo el flujo de notificaciones usa **SMTP** (`notificaciones.enviar_correo_smtp`).
 
-1. **SMTP Directo**  
-   - Variables: `SMTP_SERVER`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`.  
-   - Ideal para cuentas Gmail con App Password o servidores propios.
-
-2. **Resend (fallback)**  
-   - La clave se define en la variable `RESEND_API_KEY`.  
-   - El método interno `State._send_with_resend(to_email, subject, html, from_email)` construye el JSON requerido por Resend y realiza una petición POST a `https://api.resend.com/emails`.  
-   - Devuelve `True` si la respuesta HTTP es 200, 201 o 202.
-
-3. **Log local**  
-   - Si ambos fallan, el mensaje se escribe en `failed_emails.log` para reintentos manuales.
-
-### UI para configurar Resend
-- En el panel de **Dashboard del funcionario** aparece la tarjeta **Resend API**.  
-- Campo de entrada: `placeholder="re_xxxxxxxxxx..."`.  
-- Botón **Guardar Key** llama a `State.guardar_resend_api_key`, que persiste la llave en `email_config.json` bajo la clave `RESEND_API_KEY`.  
-- Mensajes de éxito (`#10b981`) o error (`#ef4444`) se muestran al usuario.
+1. **SMTP** — variables `EMAIL_SENDER`, `EMAIL_PASSWORD`, `SMTP_SERVER`, `SMTP_PORT`.
+2. **Log local** — si falla, el mensaje se escribe en `failed_emails.log`.
 
 ### Reintento de correos fallidos
-- El script `scripts/resend_failed_emails.py` lee `RESEND_API_KEY` y usa la función `send_via_resend` para re‑enviar los correos almacenados en `failed_emails.log`.  
-- La lógica conserva el mismo comportamiento de eliminación de entradas exitosas y registro de nuevas fallas.
+- `python scripts/retry_failed_emails.py` reenvía los correos pendientes por SMTP.
 
 ### Variables de entorno
 | Variable | Descripción |
 |----------|-------------|
-| `RESEND_API_KEY` | Clave de API de Resend (fallback). |
+| `EMAIL_SENDER` | Dirección de envío. |
+| `EMAIL_PASSWORD` | Contraseña o app password (Gmail). |
 | `SMTP_SERVER` | Servidor SMTP (ej. `smtp.gmail.com`). |
 | `SMTP_PORT` | Puerto SMTP (ej. `587`). |
-| `SMTP_USERNAME` | Usuario SMTP. |
-| `SMTP_PASSWORD` | Contraseña o app‑password. |
-| `EMAIL_SENDER` | Dirección de envío por defecto. |
+| `EMPRESA_NOMBRE` | Nombre en las plantillas. |
+| `APP_URL` | URL pública de la app (ej. `https://pqrs.tudominio.gov.co`). Si no está o es `localhost`, los archivos se envían **adjuntos** en el correo en lugar de un enlace. |
 
 Esta documentación está ahora disponible en **DOCUMENTACION_PROYECTO.md**.

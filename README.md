@@ -165,18 +165,15 @@ Este proyecto implementa un sistema web de gestión de PQRS (Peticiones, Quejas,
 - **Configuración SMTP:** Integración con Gmail usando credenciales seguras.
 
 ### 📨 Servicio de Email
-El sistema de correos intenta diferentes métodos en orden de prioridad:
-1. **SMTP Directo** (Recomendado): Se intenta primero usando las variables `SMTP_SERVER`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD` (útil para contraseñas de aplicación de Gmail o servidores privados).
-2. Si falla o no está disponible, se intenta con **Resend** usando la llave `RESEND_API_KEY`.
-3. Si ambos métodos fallan, el mensaje se guarda en `failed_emails.log` para reintentos manuales.
+Todos los correos se envían por **SMTP**. Si falla el envío, el mensaje se guarda en `failed_emails.log` para reintentar con `python scripts/retry_failed_emails.py`.
 
 Variables de entorno importantes:
 - `EMAIL_SENDER`: Correo remitente.
 - `EMAIL_PASSWORD`: Contraseña o app password del remitente.
 - `SMTP_SERVER`: Servidor SMTP (por defecto `smtp.gmail.com`).
 - `SMTP_PORT`: Puerto SMTP (por defecto `587`).
-- `RESEND_API_KEY`: Clave de API de Resend para fallback.
 - `EMPRESA_NOMBRE`: Nombre que aparecerá en el correo de bienvenida.
+- `APP_URL`: URL pública de la aplicación (ej. `https://pqrs.midominio.com`). Sin esto, los documentos en correos se envían como **adjuntos** en lugar de enlaces `localhost`.
 
 ### 🎨 Interfaz de Usuario
 - **Diseño Responsivo:** Compatible con dispositivos móviles y desktop.

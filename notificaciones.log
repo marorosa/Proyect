@@ -419,3 +419,654 @@
 2026-05-26 12:19:37,377 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.defaults
 2026-05-26 12:19:37,378 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.comments
 2026-05-26 12:19:37,417 - alembic.autogenerate.compare.tables - INFO - Detected removed table 'solicitud_estado_historial'
+2026-05-26 17:50:16,424 - alembic.runtime.migration - INFO - Context impl SQLiteImpl.
+2026-05-26 17:50:16,424 - alembic.runtime.migration - INFO - Will assume non-transactional DDL.
+2026-05-26 17:50:16,439 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.schemas
+2026-05-26 17:50:16,439 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.tables
+2026-05-26 17:50:16,439 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.types
+2026-05-26 17:50:16,439 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.constraints
+2026-05-26 17:50:16,445 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.defaults
+2026-05-26 17:50:16,445 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.comments
+2026-05-26 17:50:16,478 - alembic.autogenerate.compare.tables - INFO - Detected removed table 'solicitud_estado_historial'
+2026-05-26 18:07:06,440 - notificaciones - ERROR - [solicitud_creada] Error enviando a maria.lopez@ejemplo.com: You can only send testing emails to your own email address (sistemadeinventario0@gmail.com). To send emails to other recipients, please verify a domain at resend.com/domains, and change the `from` address to an email using this domain.
+2026-05-26 18:16:29,541 - notificaciones - ERROR - [solicitud_creada] Error enviando a hinolopez6@gmail.com: You can only send testing emails to your own email address (sistemadeinventario0@gmail.com). To send emails to other recipients, please verify a domain at resend.com/domains, and change the `from` address to an email using this domain.
+2026-05-26 18:36:10,552 - alembic.runtime.migration - INFO - Context impl SQLiteImpl.
+2026-05-26 18:36:10,552 - alembic.runtime.migration - INFO - Will assume non-transactional DDL.
+2026-05-26 18:36:10,568 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.schemas
+2026-05-26 18:36:10,568 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.tables
+2026-05-26 18:36:10,568 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.types
+2026-05-26 18:36:10,568 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.constraints
+2026-05-26 18:36:10,568 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.defaults
+2026-05-26 18:36:10,568 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.comments
+2026-05-26 18:36:10,610 - alembic.autogenerate.compare.tables - INFO - Detected removed table 'solicitud_estado_historial'
+2026-05-26 20:50:38,564 - alembic.runtime.migration - INFO - Context impl SQLiteImpl.
+2026-05-26 20:50:38,567 - alembic.runtime.migration - INFO - Will assume non-transactional DDL.
+2026-05-26 20:50:38,594 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.schemas
+2026-05-26 20:50:38,596 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.tables
+2026-05-26 20:50:38,608 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.types
+2026-05-26 20:50:38,610 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.constraints
+2026-05-26 20:50:38,610 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.defaults
+2026-05-26 20:50:38,612 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.comments
+2026-05-26 20:50:38,646 - alembic.autogenerate.compare.tables - INFO - Detected removed table 'solicitud_estado_historial'
+2026-05-26 21:00:36,806 - alembic.runtime.migration - INFO - Context impl SQLiteImpl.
+2026-05-26 21:00:36,806 - alembic.runtime.migration - INFO - Will assume non-transactional DDL.
+2026-05-26 21:00:36,821 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.schemas
+2026-05-26 21:00:36,821 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.tables
+2026-05-26 21:00:36,821 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.types
+2026-05-26 21:00:36,821 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.constraints
+2026-05-26 21:00:36,825 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.defaults
+2026-05-26 21:00:36,826 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.comments
+2026-05-26 21:00:36,871 - alembic.autogenerate.compare.tables - INFO - Detected removed table 'solicitud_estado_historial'
+2026-05-26 21:03:25,985 - notificaciones - ERROR - [prueba] Error enviando a hinolopez6@gmail.com: You can only send testing emails to your own email address (sistemadeinventario0@gmail.com). To send emails to other recipients, please verify a domain at resend.com/domains, and change the `from` address to an email using this domain.
+2026-05-26 21:04:03,225 - notificaciones - INFO - [prueba] Correo enviado a sistemadeinventario0@gmail.com - ID: ba0aaa69-a364-491c-ba0d-e1e5c9e10b34
+2026-05-26 21:50:17,754 - alembic.runtime.migration - INFO - Context impl SQLiteImpl.
+2026-05-26 21:50:17,756 - alembic.runtime.migration - INFO - Will assume non-transactional DDL.
+2026-05-26 21:50:17,769 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.schemas
+2026-05-26 21:50:17,769 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.tables
+2026-05-26 21:50:17,769 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.types
+2026-05-26 21:50:17,769 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.constraints
+2026-05-26 21:50:17,770 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.defaults
+2026-05-26 21:50:17,819 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.comments
+2026-05-26 21:50:17,845 - alembic.autogenerate.compare.tables - INFO - Detected removed table 'solicitud_estado_historial'
+2026-05-26 22:14:11,001 - alembic.runtime.migration - INFO - Context impl SQLiteImpl.
+2026-05-26 22:14:11,001 - alembic.runtime.migration - INFO - Will assume non-transactional DDL.
+2026-05-26 22:14:11,021 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.schemas
+2026-05-26 22:14:11,024 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.tables
+2026-05-26 22:14:11,025 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.types
+2026-05-26 22:14:11,025 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.constraints
+2026-05-26 22:14:11,026 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.defaults
+2026-05-26 22:14:11,026 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.comments
+2026-05-26 22:14:11,067 - alembic.autogenerate.compare.tables - INFO - Detected removed table 'solicitud_estado_historial'
+2026-05-26 22:16:11,248 - httpx - INFO - HTTP Request: POST https://app.posthog.com/capture/ "HTTP/1.1 200 OK"
+2026-05-26 22:23:50,112 - alembic.runtime.migration - INFO - Context impl SQLiteImpl.
+2026-05-26 22:23:50,112 - alembic.runtime.migration - INFO - Will assume non-transactional DDL.
+2026-05-26 22:23:50,123 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.schemas
+2026-05-26 22:23:50,123 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.tables
+2026-05-26 22:23:50,123 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.types
+2026-05-26 22:23:50,123 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.constraints
+2026-05-26 22:23:50,123 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.defaults
+2026-05-26 22:23:50,123 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.comments
+2026-05-26 22:23:50,178 - alembic.autogenerate.compare.tables - INFO - Detected removed table 'solicitud_estado_historial'
+2026-05-26 22:33:21,649 - notificaciones - ERROR - [solicitud_creada] Error enviando a hinolopez6@gmail.com: You can only send testing emails to your own email address (sistemadeinventario0@gmail.com). To send emails to other recipients, please verify a domain at resend.com/domains, and change the `from` address to an email using this domain.
+2026-05-26 22:40:22,228 - notificaciones - INFO - [solicitud_creada] Correo enviado a hinolopez6@gmail.com (SMTP)
+2026-05-26 22:44:30,541 - notificaciones - INFO - [cambio_estado] Correo enviado a hinolopez6@gmail.com (SMTP)
+2026-05-26 22:47:32,234 - notificaciones - INFO - [respuesta_final] Correo enviado a hinolopez6@gmail.com (SMTP)
+2026-05-26 23:02:35,810 - notificaciones - INFO - [cambio_estado] Correo enviado a hinolopez6@gmail.com (SMTP)
+2026-05-26 23:07:07,112 - notificaciones - INFO - [respuesta_final] Correo enviado a juan.perez@ejemplo.com (SMTP)
+2026-05-26 23:13:27,282 - alembic.runtime.migration - INFO - Context impl SQLiteImpl.
+2026-05-26 23:13:27,284 - alembic.runtime.migration - INFO - Will assume non-transactional DDL.
+2026-05-26 23:13:27,330 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.schemas
+2026-05-26 23:13:27,330 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.tables
+2026-05-26 23:13:27,331 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.types
+2026-05-26 23:13:27,332 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.constraints
+2026-05-26 23:13:27,334 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.defaults
+2026-05-26 23:13:27,340 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.comments
+2026-05-26 23:13:27,460 - alembic.autogenerate.compare.tables - INFO - Detected removed table 'solicitud_estado_historial'
+2026-05-26 23:20:09,125 - alembic.runtime.migration - INFO - Context impl SQLiteImpl.
+2026-05-26 23:20:09,125 - alembic.runtime.migration - INFO - Will assume non-transactional DDL.
+2026-05-26 23:20:09,145 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.schemas
+2026-05-26 23:20:09,145 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.tables
+2026-05-26 23:20:09,145 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.types
+2026-05-26 23:20:09,145 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.constraints
+2026-05-26 23:20:09,145 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.defaults
+2026-05-26 23:20:09,145 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.comments
+2026-05-26 23:20:09,193 - alembic.autogenerate.compare.tables - INFO - Detected removed table 'solicitud_estado_historial'
+2026-05-26 23:31:06,228 - alembic.runtime.migration - INFO - Context impl SQLiteImpl.
+2026-05-26 23:31:06,228 - alembic.runtime.migration - INFO - Will assume non-transactional DDL.
+2026-05-26 23:31:06,275 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.schemas
+2026-05-26 23:31:06,277 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.tables
+2026-05-26 23:31:06,277 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.types
+2026-05-26 23:31:06,278 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.constraints
+2026-05-26 23:31:06,278 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.defaults
+2026-05-26 23:31:06,280 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.comments
+2026-05-26 23:31:06,306 - alembic.autogenerate.compare.tables - INFO - Detected removed table 'solicitud_estado_historial'
+2026-05-27 09:06:03,055 - alembic.runtime.migration - INFO - Context impl SQLiteImpl.
+2026-05-27 09:06:03,055 - alembic.runtime.migration - INFO - Will assume non-transactional DDL.
+2026-05-27 09:06:03,083 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.schemas
+2026-05-27 09:06:03,085 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.tables
+2026-05-27 09:06:03,095 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.types
+2026-05-27 09:06:03,114 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.constraints
+2026-05-27 09:06:03,114 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.defaults
+2026-05-27 09:06:03,128 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.comments
+2026-05-27 09:06:03,171 - alembic.autogenerate.compare.tables - INFO - Detected removed table 'solicitud_estado_historial'
+2026-05-27 09:23:56,083 - alembic.runtime.migration - INFO - Context impl SQLiteImpl.
+2026-05-27 09:23:56,085 - alembic.runtime.migration - INFO - Will assume non-transactional DDL.
+2026-05-27 09:23:56,121 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.schemas
+2026-05-27 09:23:56,124 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.tables
+2026-05-27 09:23:56,125 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.types
+2026-05-27 09:23:56,125 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.constraints
+2026-05-27 09:23:56,125 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.defaults
+2026-05-27 09:23:56,126 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.comments
+2026-05-27 09:23:56,187 - alembic.autogenerate.compare.tables - INFO - Detected removed table 'solicitud_estado_historial'
+2026-05-27 09:31:03,068 - alembic.runtime.migration - INFO - Context impl SQLiteImpl.
+2026-05-27 09:31:03,070 - alembic.runtime.migration - INFO - Will assume non-transactional DDL.
+2026-05-27 09:31:03,170 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.schemas
+2026-05-27 09:31:03,172 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.tables
+2026-05-27 09:31:03,181 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.types
+2026-05-27 09:31:03,184 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.constraints
+2026-05-27 09:31:03,188 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.defaults
+2026-05-27 09:31:03,201 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.comments
+2026-05-27 09:31:03,271 - alembic.autogenerate.compare.tables - INFO - Detected removed table 'solicitud_estado_historial'
+2026-05-27 09:36:18,070 - alembic.runtime.migration - INFO - Context impl SQLiteImpl.
+2026-05-27 09:36:18,298 - alembic.runtime.migration - INFO - Will assume non-transactional DDL.
+2026-05-27 09:36:18,377 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.schemas
+2026-05-27 09:36:18,381 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.tables
+2026-05-27 09:36:18,382 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.types
+2026-05-27 09:36:18,382 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.constraints
+2026-05-27 09:36:18,383 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.defaults
+2026-05-27 09:36:18,383 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.comments
+2026-05-27 09:36:18,503 - alembic.autogenerate.compare.tables - INFO - Detected removed table 'solicitud_estado_historial'
+2026-05-27 09:39:09,509 - alembic.runtime.migration - INFO - Context impl SQLiteImpl.
+2026-05-27 09:39:09,509 - alembic.runtime.migration - INFO - Will assume non-transactional DDL.
+2026-05-27 09:39:09,531 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.schemas
+2026-05-27 09:39:09,531 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.tables
+2026-05-27 09:39:09,531 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.types
+2026-05-27 09:39:09,531 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.constraints
+2026-05-27 09:39:09,534 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.defaults
+2026-05-27 09:39:09,535 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.comments
+2026-05-27 09:39:09,576 - alembic.autogenerate.compare.tables - INFO - Detected removed table 'solicitud_estado_historial'
+2026-05-27 09:42:10,979 - alembic.runtime.migration - INFO - Context impl SQLiteImpl.
+2026-05-27 09:42:10,980 - alembic.runtime.migration - INFO - Will assume non-transactional DDL.
+2026-05-27 09:42:11,007 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.schemas
+2026-05-27 09:42:11,008 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.tables
+2026-05-27 09:42:11,009 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.types
+2026-05-27 09:42:11,010 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.constraints
+2026-05-27 09:42:11,011 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.defaults
+2026-05-27 09:42:11,011 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.comments
+2026-05-27 09:42:11,089 - alembic.autogenerate.compare.tables - INFO - Detected removed table 'solicitud_estado_historial'
+2026-05-27 09:43:27,812 - alembic.runtime.migration - INFO - Context impl SQLiteImpl.
+2026-05-27 09:43:27,817 - alembic.runtime.migration - INFO - Will assume non-transactional DDL.
+2026-05-27 09:43:27,881 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.schemas
+2026-05-27 09:43:27,911 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.tables
+2026-05-27 09:43:27,967 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.types
+2026-05-27 09:43:28,031 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.constraints
+2026-05-27 09:43:28,104 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.defaults
+2026-05-27 09:43:28,113 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.comments
+2026-05-27 09:43:28,189 - alembic.autogenerate.compare.tables - INFO - Detected removed table 'solicitud_estado_historial'
+2026-05-27 09:50:58,780 - alembic.runtime.migration - INFO - Context impl SQLiteImpl.
+2026-05-27 09:50:58,790 - alembic.runtime.migration - INFO - Will assume non-transactional DDL.
+2026-05-27 09:50:58,809 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.schemas
+2026-05-27 09:50:58,810 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.tables
+2026-05-27 09:50:58,810 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.types
+2026-05-27 09:50:58,810 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.constraints
+2026-05-27 09:50:58,810 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.defaults
+2026-05-27 09:50:58,810 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.comments
+2026-05-27 09:50:58,839 - alembic.autogenerate.compare.tables - INFO - Detected removed table 'solicitud_estado_historial'
+2026-05-27 09:52:38,545 - asyncio - ERROR - Exception in callback LifespanMixin._run_lifespan_tasks.<locals>.<lambda>(<Task finishe...id argument')>) at C:\Users\HinojosaDev\Downloads\ADA\Sft1\PQRS-1\.venv\Lib\site-packages\reflex\app_mixins\lifespan.py:53
+handle: <Handle LifespanMixin._run_lifespan_tasks.<locals>.<lambda>(<Task finishe...id argument')>) at C:\Users\HinojosaDev\Downloads\ADA\Sft1\PQRS-1\.venv\Lib\site-packages\reflex\app_mixins\lifespan.py:53>
+Traceback (most recent call last):
+  File "C:\Users\HinojosaDev\AppData\Local\Programs\Python\Python312\Lib\asyncio\events.py", line 88, in _run
+    self._context.run(self._callback, *self._args)
+  File "C:\Users\HinojosaDev\Downloads\ADA\Sft1\PQRS-1\.venv\Lib\site-packages\reflex\app_mixins\lifespan.py", line 53, in <lambda>
+    task_.add_done_callback(lambda t: t.result())
+                                      ^^^^^^^^^^
+  File "C:\Users\HinojosaDev\Downloads\ADA\Sft1\PQRS-1\.venv\Lib\site-packages\reflex\utils\compat.py", line 30, in windows_hot_reload_lifespan_hack
+    sys.stderr.flush()
+OSError: [Errno 22] Invalid argument
+2026-05-27 09:53:21,076 - asyncio - ERROR - Task exception was never retrieved
+future: <Task finished name='Task-11' coro=<AsyncServer._handle_event_internal() done, defined at C:\Users\HinojosaDev\Downloads\ADA\Sft1\PQRS-1\.venv\Lib\site-packages\socketio\async_server.py:617> exception=OSError(22, 'Invalid argument')>
+Traceback (most recent call last):
+  File "C:\Users\HinojosaDev\Downloads\ADA\Sft1\PQRS-1\.venv\Lib\site-packages\reflex\app.py", line 1820, in process
+    update = await app._preprocess(state, event)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\HinojosaDev\Downloads\ADA\Sft1\PQRS-1\.venv\Lib\site-packages\reflex\app_mixins\middleware.py", line 56, in _preprocess
+    out = await out
+          ^^^^^^^^^
+  File "C:\Users\HinojosaDev\Downloads\ADA\Sft1\PQRS-1\.venv\Lib\site-packages\reflex\middleware\hydrate_middleware.py", line 39, in preprocess
+    state._reset_client_storage()
+  File "C:\Users\HinojosaDev\Downloads\ADA\Sft1\PQRS-1\.venv\Lib\site-packages\reflex\state.py", line 1547, in _reset_client_storage
+    substate._reset_client_storage()
+  File "C:\Users\HinojosaDev\Downloads\ADA\Sft1\PQRS-1\.venv\Lib\site-packages\reflex\state.py", line 1543, in _reset_client_storage
+    setattr(self, prop_name, copy.deepcopy(field.default))
+  File "C:\Users\HinojosaDev\Downloads\ADA\Sft1\PQRS-1\.venv\Lib\site-packages\reflex\state.py", line 1472, in __setattr__
+    console.error(
+  File "C:\Users\HinojosaDev\Downloads\ADA\Sft1\PQRS-1\.venv\Lib\site-packages\reflex\utils\console.py", line 361, in error
+    _print_stderr(f"[red]{msg}[/red]", **kwargs)
+  File "C:\Users\HinojosaDev\Downloads\ADA\Sft1\PQRS-1\.venv\Lib\site-packages\reflex\utils\console.py", line 112, in _print_stderr
+    _console_stderr.print(msg, **kwargs)
+  File "C:\Users\HinojosaDev\Downloads\ADA\Sft1\PQRS-1\.venv\Lib\site-packages\rich\console.py", line 1700, in print
+    with self:
+         ^^^^
+  File "C:\Users\HinojosaDev\Downloads\ADA\Sft1\PQRS-1\.venv\Lib\site-packages\rich\console.py", line 863, in __exit__
+    self._exit_buffer()
+  File "C:\Users\HinojosaDev\Downloads\ADA\Sft1\PQRS-1\.venv\Lib\site-packages\rich\console.py", line 819, in _exit_buffer
+    self._check_buffer()
+  File "C:\Users\HinojosaDev\Downloads\ADA\Sft1\PQRS-1\.venv\Lib\site-packages\rich\console.py", line 2051, in _check_buffer
+    self._write_buffer()
+  File "C:\Users\HinojosaDev\Downloads\ADA\Sft1\PQRS-1\.venv\Lib\site-packages\rich\console.py", line 2087, in _write_buffer
+    legacy_windows_render(buffer, LegacyWindowsTerm(self.file))
+  File "C:\Users\HinojosaDev\Downloads\ADA\Sft1\PQRS-1\.venv\Lib\site-packages\rich\_windows_renderer.py", line 17, in legacy_windows_render
+    term.write_styled(text, style)
+  File "C:\Users\HinojosaDev\Downloads\ADA\Sft1\PQRS-1\.venv\Lib\site-packages\rich\_win32_console.py", line 441, in write_styled
+    self.write_text(text)
+  File "C:\Users\HinojosaDev\Downloads\ADA\Sft1\PQRS-1\.venv\Lib\site-packages\rich\_win32_console.py", line 403, in write_text
+    self.flush()
+OSError: [Errno 22] Invalid argument
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\HinojosaDev\Downloads\ADA\Sft1\PQRS-1\.venv\Lib\site-packages\socketio\async_server.py", line 619, in _handle_event_internal
+    r = await server._trigger_event(data[0], namespace, sid, *data[1:])
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\HinojosaDev\Downloads\ADA\Sft1\PQRS-1\.venv\Lib\site-packages\socketio\async_server.py", line 669, in _trigger_event
+    return await handler.trigger_event(event, *args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\HinojosaDev\Downloads\ADA\Sft1\PQRS-1\.venv\Lib\site-packages\socketio\async_namespace.py", line 39, in trigger_event
+    ret = await handler(*args)
+          ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\HinojosaDev\Downloads\ADA\Sft1\PQRS-1\.venv\Lib\site-packages\reflex\app.py", line 2239, in on_event
+    async for update in updates_gen:
+  File "C:\Users\HinojosaDev\Downloads\ADA\Sft1\PQRS-1\.venv\Lib\site-packages\reflex\app.py", line 1842, in process
+    app.backend_exception_handler(ex)
+  File "C:\Users\HinojosaDev\Downloads\ADA\Sft1\PQRS-1\.venv\Lib\site-packages\reflex\app.py", line 163, in default_backend_exception_handler
+    console.error(f"[Reflex Backend Exception]\n {error}\n")
+  File "C:\Users\HinojosaDev\Downloads\ADA\Sft1\PQRS-1\.venv\Lib\site-packages\reflex\utils\console.py", line 361, in error
+    _print_stderr(f"[red]{msg}[/red]", **kwargs)
+  File "C:\Users\HinojosaDev\Downloads\ADA\Sft1\PQRS-1\.venv\Lib\site-packages\reflex\utils\console.py", line 112, in _print_stderr
+    _console_stderr.print(msg, **kwargs)
+  File "C:\Users\HinojosaDev\Downloads\ADA\Sft1\PQRS-1\.venv\Lib\site-packages\rich\console.py", line 1700, in print
+    with self:
+         ^^^^
+  File "C:\Users\HinojosaDev\Downloads\ADA\Sft1\PQRS-1\.venv\Lib\site-packages\rich\console.py", line 863, in __exit__
+    self._exit_buffer()
+  File "C:\Users\HinojosaDev\Downloads\ADA\Sft1\PQRS-1\.venv\Lib\site-packages\rich\console.py", line 819, in _exit_buffer
+    self._check_buffer()
+  File "C:\Users\HinojosaDev\Downloads\ADA\Sft1\PQRS-1\.venv\Lib\site-packages\rich\console.py", line 2051, in _check_buffer
+    self._write_buffer()
+  File "C:\Users\HinojosaDev\Downloads\ADA\Sft1\PQRS-1\.venv\Lib\site-packages\rich\console.py", line 2087, in _write_buffer
+    legacy_windows_render(buffer, LegacyWindowsTerm(self.file))
+  File "C:\Users\HinojosaDev\Downloads\ADA\Sft1\PQRS-1\.venv\Lib\site-packages\rich\_windows_renderer.py", line 17, in legacy_windows_render
+    term.write_styled(text, style)
+  File "C:\Users\HinojosaDev\Downloads\ADA\Sft1\PQRS-1\.venv\Lib\site-packages\rich\_win32_console.py", line 441, in write_styled
+    self.write_text(text)
+  File "C:\Users\HinojosaDev\Downloads\ADA\Sft1\PQRS-1\.venv\Lib\site-packages\rich\_win32_console.py", line 403, in write_text
+    self.flush()
+OSError: [Errno 22] Invalid argument
+2026-05-27 09:56:19,429 - asyncio - ERROR - Task exception was never retrieved
+future: <Task finished name='Task-34' coro=<AsyncServer._handle_event_internal() done, defined at C:\Users\HinojosaDev\Downloads\ADA\Sft1\PQRS-1\.venv\Lib\site-packages\socketio\async_server.py:617> exception=OSError(22, 'Invalid argument')>
+Traceback (most recent call last):
+  File "C:\Users\HinojosaDev\Downloads\ADA\Sft1\PQRS-1\.venv\Lib\site-packages\reflex\app.py", line 1820, in process
+    update = await app._preprocess(state, event)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\HinojosaDev\Downloads\ADA\Sft1\PQRS-1\.venv\Lib\site-packages\reflex\app_mixins\middleware.py", line 56, in _preprocess
+    out = await out
+          ^^^^^^^^^
+  File "C:\Users\HinojosaDev\Downloads\ADA\Sft1\PQRS-1\.venv\Lib\site-packages\reflex\middleware\hydrate_middleware.py", line 39, in preprocess
+    state._reset_client_storage()
+  File "C:\Users\HinojosaDev\Downloads\ADA\Sft1\PQRS-1\.venv\Lib\site-packages\reflex\state.py", line 1547, in _reset_client_storage
+    substate._reset_client_storage()
+  File "C:\Users\HinojosaDev\Downloads\ADA\Sft1\PQRS-1\.venv\Lib\site-packages\reflex\state.py", line 1543, in _reset_client_storage
+    setattr(self, prop_name, copy.deepcopy(field.default))
+  File "C:\Users\HinojosaDev\Downloads\ADA\Sft1\PQRS-1\.venv\Lib\site-packages\reflex\state.py", line 1472, in __setattr__
+    console.error(
+  File "C:\Users\HinojosaDev\Downloads\ADA\Sft1\PQRS-1\.venv\Lib\site-packages\reflex\utils\console.py", line 361, in error
+    _print_stderr(f"[red]{msg}[/red]", **kwargs)
+  File "C:\Users\HinojosaDev\Downloads\ADA\Sft1\PQRS-1\.venv\Lib\site-packages\reflex\utils\console.py", line 112, in _print_stderr
+    _console_stderr.print(msg, **kwargs)
+  File "C:\Users\HinojosaDev\Downloads\ADA\Sft1\PQRS-1\.venv\Lib\site-packages\rich\console.py", line 1700, in print
+    with self:
+         ^^^^
+  File "C:\Users\HinojosaDev\Downloads\ADA\Sft1\PQRS-1\.venv\Lib\site-packages\rich\console.py", line 863, in __exit__
+    self._exit_buffer()
+  File "C:\Users\HinojosaDev\Downloads\ADA\Sft1\PQRS-1\.venv\Lib\site-packages\rich\console.py", line 819, in _exit_buffer
+    self._check_buffer()
+  File "C:\Users\HinojosaDev\Downloads\ADA\Sft1\PQRS-1\.venv\Lib\site-packages\rich\console.py", line 2051, in _check_buffer
+    self._write_buffer()
+  File "C:\Users\HinojosaDev\Downloads\ADA\Sft1\PQRS-1\.venv\Lib\site-packages\rich\console.py", line 2087, in _write_buffer
+    legacy_windows_render(buffer, LegacyWindowsTerm(self.file))
+  File "C:\Users\HinojosaDev\Downloads\ADA\Sft1\PQRS-1\.venv\Lib\site-packages\rich\_windows_renderer.py", line 17, in legacy_windows_render
+    term.write_styled(text, style)
+  File "C:\Users\HinojosaDev\Downloads\ADA\Sft1\PQRS-1\.venv\Lib\site-packages\rich\_win32_console.py", line 441, in write_styled
+    self.write_text(text)
+  File "C:\Users\HinojosaDev\Downloads\ADA\Sft1\PQRS-1\.venv\Lib\site-packages\rich\_win32_console.py", line 403, in write_text
+    self.flush()
+OSError: [Errno 22] Invalid argument
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\HinojosaDev\Downloads\ADA\Sft1\PQRS-1\.venv\Lib\site-packages\socketio\async_server.py", line 619, in _handle_event_internal
+    r = await server._trigger_event(data[0], namespace, sid, *data[1:])
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\HinojosaDev\Downloads\ADA\Sft1\PQRS-1\.venv\Lib\site-packages\socketio\async_server.py", line 669, in _trigger_event
+    return await handler.trigger_event(event, *args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\HinojosaDev\Downloads\ADA\Sft1\PQRS-1\.venv\Lib\site-packages\socketio\async_namespace.py", line 39, in trigger_event
+    ret = await handler(*args)
+          ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\HinojosaDev\Downloads\ADA\Sft1\PQRS-1\.venv\Lib\site-packages\reflex\app.py", line 2239, in on_event
+    async for update in updates_gen:
+  File "C:\Users\HinojosaDev\Downloads\ADA\Sft1\PQRS-1\.venv\Lib\site-packages\reflex\app.py", line 1842, in process
+    app.backend_exception_handler(ex)
+  File "C:\Users\HinojosaDev\Downloads\ADA\Sft1\PQRS-1\.venv\Lib\site-packages\reflex\app.py", line 163, in default_backend_exception_handler
+    console.error(f"[Reflex Backend Exception]\n {error}\n")
+  File "C:\Users\HinojosaDev\Downloads\ADA\Sft1\PQRS-1\.venv\Lib\site-packages\reflex\utils\console.py", line 361, in error
+    _print_stderr(f"[red]{msg}[/red]", **kwargs)
+  File "C:\Users\HinojosaDev\Downloads\ADA\Sft1\PQRS-1\.venv\Lib\site-packages\reflex\utils\console.py", line 112, in _print_stderr
+    _console_stderr.print(msg, **kwargs)
+  File "C:\Users\HinojosaDev\Downloads\ADA\Sft1\PQRS-1\.venv\Lib\site-packages\rich\console.py", line 1700, in print
+    with self:
+         ^^^^
+  File "C:\Users\HinojosaDev\Downloads\ADA\Sft1\PQRS-1\.venv\Lib\site-packages\rich\console.py", line 863, in __exit__
+    self._exit_buffer()
+  File "C:\Users\HinojosaDev\Downloads\ADA\Sft1\PQRS-1\.venv\Lib\site-packages\rich\console.py", line 819, in _exit_buffer
+    self._check_buffer()
+  File "C:\Users\HinojosaDev\Downloads\ADA\Sft1\PQRS-1\.venv\Lib\site-packages\rich\console.py", line 2051, in _check_buffer
+    self._write_buffer()
+  File "C:\Users\HinojosaDev\Downloads\ADA\Sft1\PQRS-1\.venv\Lib\site-packages\rich\console.py", line 2087, in _write_buffer
+    legacy_windows_render(buffer, LegacyWindowsTerm(self.file))
+  File "C:\Users\HinojosaDev\Downloads\ADA\Sft1\PQRS-1\.venv\Lib\site-packages\rich\_windows_renderer.py", line 17, in legacy_windows_render
+    term.write_styled(text, style)
+  File "C:\Users\HinojosaDev\Downloads\ADA\Sft1\PQRS-1\.venv\Lib\site-packages\rich\_win32_console.py", line 441, in write_styled
+    self.write_text(text)
+  File "C:\Users\HinojosaDev\Downloads\ADA\Sft1\PQRS-1\.venv\Lib\site-packages\rich\_win32_console.py", line 403, in write_text
+    self.flush()
+OSError: [Errno 22] Invalid argument
+2026-05-27 09:58:01,192 - alembic.runtime.migration - INFO - Context impl SQLiteImpl.
+2026-05-27 09:58:01,192 - alembic.runtime.migration - INFO - Will assume non-transactional DDL.
+2026-05-27 09:58:01,229 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.schemas
+2026-05-27 09:58:01,231 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.tables
+2026-05-27 09:58:01,232 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.types
+2026-05-27 09:58:01,233 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.constraints
+2026-05-27 09:58:01,234 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.defaults
+2026-05-27 09:58:01,234 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.comments
+2026-05-27 09:58:01,272 - alembic.autogenerate.compare.tables - INFO - Detected removed table 'solicitud_estado_historial'
+2026-05-27 10:44:03,085 - alembic.runtime.migration - INFO - Context impl SQLiteImpl.
+2026-05-27 10:44:03,102 - alembic.runtime.migration - INFO - Will assume non-transactional DDL.
+2026-05-27 10:44:03,167 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.schemas
+2026-05-27 10:44:03,293 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.tables
+2026-05-27 10:44:03,322 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.types
+2026-05-27 10:44:03,325 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.constraints
+2026-05-27 10:44:03,326 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.defaults
+2026-05-27 10:44:03,354 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.comments
+2026-05-27 10:44:03,516 - alembic.autogenerate.compare.tables - INFO - Detected removed table 'solicitud_estado_historial'
+2026-05-27 11:28:44,849 - alembic.runtime.migration - INFO - Context impl SQLiteImpl.
+2026-05-27 11:28:44,861 - alembic.runtime.migration - INFO - Will assume non-transactional DDL.
+2026-05-27 11:28:44,904 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.schemas
+2026-05-27 11:28:44,904 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.tables
+2026-05-27 11:28:44,905 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.types
+2026-05-27 11:28:44,906 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.constraints
+2026-05-27 11:28:44,907 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.defaults
+2026-05-27 11:28:44,907 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.comments
+2026-05-27 11:28:45,018 - alembic.autogenerate.compare.tables - INFO - Detected removed table 'solicitud_estado_historial'
+2026-05-27 11:51:14,693 - alembic.runtime.migration - INFO - Context impl SQLiteImpl.
+2026-05-27 11:51:14,693 - alembic.runtime.migration - INFO - Will assume non-transactional DDL.
+2026-05-27 11:51:14,724 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.schemas
+2026-05-27 11:51:14,728 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.tables
+2026-05-27 11:51:14,728 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.types
+2026-05-27 11:51:14,730 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.constraints
+2026-05-27 11:51:14,732 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.defaults
+2026-05-27 11:51:14,732 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.comments
+2026-05-27 11:51:14,756 - alembic.autogenerate.compare.tables - INFO - Detected removed table 'solicitud_estado_historial'
+2026-05-27 11:56:32,227 - alembic.runtime.migration - INFO - Context impl SQLiteImpl.
+2026-05-27 11:56:32,228 - alembic.runtime.migration - INFO - Will assume non-transactional DDL.
+2026-05-27 11:56:32,244 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.schemas
+2026-05-27 11:56:32,244 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.tables
+2026-05-27 11:56:32,245 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.types
+2026-05-27 11:56:32,245 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.constraints
+2026-05-27 11:56:32,246 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.defaults
+2026-05-27 11:56:32,246 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.comments
+2026-05-27 11:56:32,311 - alembic.autogenerate.compare.tables - INFO - Detected removed table 'solicitud_estado_historial'
+2026-05-27 12:22:03,774 - alembic.runtime.migration - INFO - Context impl SQLiteImpl.
+2026-05-27 12:22:03,841 - alembic.runtime.migration - INFO - Will assume non-transactional DDL.
+2026-05-27 12:22:03,906 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.schemas
+2026-05-27 12:22:03,907 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.tables
+2026-05-27 12:22:03,907 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.types
+2026-05-27 12:22:03,908 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.constraints
+2026-05-27 12:22:03,909 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.defaults
+2026-05-27 12:22:03,910 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.comments
+2026-05-27 12:22:04,074 - alembic.autogenerate.compare.tables - INFO - Detected removed table 'solicitud_estado_historial'
+2026-05-27 12:23:41,326 - alembic.runtime.migration - INFO - Context impl SQLiteImpl.
+2026-05-27 12:23:41,331 - alembic.runtime.migration - INFO - Will assume non-transactional DDL.
+2026-05-27 12:23:41,357 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.schemas
+2026-05-27 12:23:41,358 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.tables
+2026-05-27 12:23:41,359 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.types
+2026-05-27 12:23:41,360 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.constraints
+2026-05-27 12:23:41,363 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.defaults
+2026-05-27 12:23:41,364 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.comments
+2026-05-27 12:23:41,470 - alembic.autogenerate.compare.tables - INFO - Detected removed table 'solicitud_estado_historial'
+2026-05-27 12:35:05,783 - alembic.runtime.migration - INFO - Context impl SQLiteImpl.
+2026-05-27 12:35:05,785 - alembic.runtime.migration - INFO - Will assume non-transactional DDL.
+2026-05-27 12:35:05,813 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.schemas
+2026-05-27 12:35:05,815 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.tables
+2026-05-27 12:35:05,815 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.types
+2026-05-27 12:35:05,817 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.constraints
+2026-05-27 12:35:05,817 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.defaults
+2026-05-27 12:35:05,821 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.comments
+2026-05-27 12:35:05,861 - alembic.autogenerate.compare.tables - INFO - Detected removed table 'solicitud_estado_historial'
+2026-05-27 12:36:56,959 - alembic.runtime.migration - INFO - Context impl SQLiteImpl.
+2026-05-27 12:36:56,960 - alembic.runtime.migration - INFO - Will assume non-transactional DDL.
+2026-05-27 12:36:56,974 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.schemas
+2026-05-27 12:36:56,974 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.tables
+2026-05-27 12:36:56,975 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.types
+2026-05-27 12:36:56,975 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.constraints
+2026-05-27 12:36:56,975 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.defaults
+2026-05-27 12:36:56,975 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.comments
+2026-05-27 12:36:56,997 - alembic.autogenerate.compare.tables - INFO - Detected removed table 'solicitud_estado_historial'
+2026-05-27 12:43:31,224 - alembic.runtime.migration - INFO - Context impl SQLiteImpl.
+2026-05-27 12:43:31,238 - alembic.runtime.migration - INFO - Will assume non-transactional DDL.
+2026-05-27 12:43:31,293 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.schemas
+2026-05-27 12:43:31,293 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.tables
+2026-05-27 12:43:31,294 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.types
+2026-05-27 12:43:31,294 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.constraints
+2026-05-27 12:43:31,294 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.defaults
+2026-05-27 12:43:31,295 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.comments
+2026-05-27 12:43:31,383 - alembic.autogenerate.compare.tables - INFO - Detected removed table 'solicitud_estado_historial'
+2026-05-27 12:48:58,208 - alembic.runtime.migration - INFO - Context impl SQLiteImpl.
+2026-05-27 12:48:58,217 - alembic.runtime.migration - INFO - Will assume non-transactional DDL.
+2026-05-27 12:48:58,239 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.schemas
+2026-05-27 12:48:58,302 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.tables
+2026-05-27 12:48:58,332 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.types
+2026-05-27 12:48:58,365 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.constraints
+2026-05-27 12:48:58,392 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.defaults
+2026-05-27 12:48:58,432 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.comments
+2026-05-27 12:48:58,710 - alembic.autogenerate.compare.tables - INFO - Detected removed table 'solicitud_estado_historial'
+2026-05-27 12:50:07,570 - alembic.runtime.migration - INFO - Context impl SQLiteImpl.
+2026-05-27 12:50:07,570 - alembic.runtime.migration - INFO - Will assume non-transactional DDL.
+2026-05-27 12:50:07,588 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.schemas
+2026-05-27 12:50:07,589 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.tables
+2026-05-27 12:50:07,591 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.types
+2026-05-27 12:50:07,610 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.constraints
+2026-05-27 12:50:07,612 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.defaults
+2026-05-27 12:50:07,612 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.comments
+2026-05-27 12:50:07,637 - alembic.autogenerate.compare.tables - INFO - Detected removed table 'solicitud_estado_historial'
+2026-05-27 13:03:52,957 - alembic.runtime.migration - INFO - Context impl SQLiteImpl.
+2026-05-27 13:03:52,965 - alembic.runtime.migration - INFO - Will assume non-transactional DDL.
+2026-05-27 13:03:52,984 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.schemas
+2026-05-27 13:03:52,985 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.tables
+2026-05-27 13:03:52,986 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.types
+2026-05-27 13:03:52,987 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.constraints
+2026-05-27 13:03:52,988 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.defaults
+2026-05-27 13:03:52,988 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.comments
+2026-05-27 13:03:53,027 - alembic.autogenerate.compare.tables - INFO - Detected removed table 'solicitud_estado_historial'
+2026-05-27 13:11:41,984 - alembic.runtime.migration - INFO - Context impl SQLiteImpl.
+2026-05-27 13:11:41,984 - alembic.runtime.migration - INFO - Will assume non-transactional DDL.
+2026-05-27 13:11:42,001 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.schemas
+2026-05-27 13:11:42,003 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.tables
+2026-05-27 13:11:42,004 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.types
+2026-05-27 13:11:42,006 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.constraints
+2026-05-27 13:11:42,007 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.defaults
+2026-05-27 13:11:42,008 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.comments
+2026-05-27 13:11:42,053 - alembic.autogenerate.compare.tables - INFO - Detected removed table 'solicitud_estado_historial'
+2026-05-27 13:31:27,816 - alembic.runtime.migration - INFO - Context impl SQLiteImpl.
+2026-05-27 13:31:27,818 - alembic.runtime.migration - INFO - Will assume non-transactional DDL.
+2026-05-27 13:31:27,856 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.schemas
+2026-05-27 13:31:27,857 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.tables
+2026-05-27 13:31:27,857 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.types
+2026-05-27 13:31:27,857 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.constraints
+2026-05-27 13:31:27,857 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.defaults
+2026-05-27 13:31:27,857 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.comments
+2026-05-27 13:31:27,884 - alembic.autogenerate.compare.tables - INFO - Detected removed table 'solicitud_estado_historial'
+2026-05-27 13:34:09,421 - asyncio - ERROR - Exception in callback LifespanMixin._run_lifespan_tasks.<locals>.<lambda>(<Task finishe...id argument')>) at C:\Users\HinojosaDev\Downloads\ADA\Sft1\PQRS-1\.venv\Lib\site-packages\reflex\app_mixins\lifespan.py:53
+handle: <Handle LifespanMixin._run_lifespan_tasks.<locals>.<lambda>(<Task finishe...id argument')>) at C:\Users\HinojosaDev\Downloads\ADA\Sft1\PQRS-1\.venv\Lib\site-packages\reflex\app_mixins\lifespan.py:53>
+Traceback (most recent call last):
+  File "C:\Users\HinojosaDev\AppData\Local\Programs\Python\Python312\Lib\asyncio\events.py", line 88, in _run
+    self._context.run(self._callback, *self._args)
+  File "C:\Users\HinojosaDev\Downloads\ADA\Sft1\PQRS-1\.venv\Lib\site-packages\reflex\app_mixins\lifespan.py", line 53, in <lambda>
+    task_.add_done_callback(lambda t: t.result())
+                                      ^^^^^^^^^^
+  File "C:\Users\HinojosaDev\Downloads\ADA\Sft1\PQRS-1\.venv\Lib\site-packages\reflex\utils\compat.py", line 30, in windows_hot_reload_lifespan_hack
+    sys.stderr.flush()
+OSError: [Errno 22] Invalid argument
+2026-05-27 13:37:52,583 - alembic.runtime.migration - INFO - Context impl SQLiteImpl.
+2026-05-27 13:37:52,660 - alembic.runtime.migration - INFO - Will assume non-transactional DDL.
+2026-05-27 13:37:52,690 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.schemas
+2026-05-27 13:37:52,695 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.tables
+2026-05-27 13:37:52,695 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.types
+2026-05-27 13:37:52,696 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.constraints
+2026-05-27 13:37:52,696 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.defaults
+2026-05-27 13:37:52,697 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.comments
+2026-05-27 13:37:52,727 - alembic.autogenerate.compare.tables - INFO - Detected removed table 'solicitud_estado_historial'
+2026-05-27 13:52:05,702 - alembic.runtime.migration - INFO - Context impl SQLiteImpl.
+2026-05-27 13:52:05,702 - alembic.runtime.migration - INFO - Will assume non-transactional DDL.
+2026-05-27 13:52:05,715 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.schemas
+2026-05-27 13:52:05,715 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.tables
+2026-05-27 13:52:05,715 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.types
+2026-05-27 13:52:05,715 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.constraints
+2026-05-27 13:52:05,715 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.defaults
+2026-05-27 13:52:05,715 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.comments
+2026-05-27 13:52:05,746 - alembic.autogenerate.compare.tables - INFO - Detected removed table 'solicitud_estado_historial'
+2026-05-27 13:53:44,815 - alembic.runtime.migration - INFO - Context impl SQLiteImpl.
+2026-05-27 13:53:44,815 - alembic.runtime.migration - INFO - Will assume non-transactional DDL.
+2026-05-27 13:53:44,815 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.schemas
+2026-05-27 13:53:44,831 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.tables
+2026-05-27 13:53:44,834 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.types
+2026-05-27 13:53:44,837 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.constraints
+2026-05-27 13:53:44,839 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.defaults
+2026-05-27 13:53:44,839 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.comments
+2026-05-27 13:53:44,885 - alembic.autogenerate.compare.tables - INFO - Detected removed table 'solicitud_estado_historial'
+2026-05-27 13:55:59,841 - asyncio - ERROR - Exception in callback LifespanMixin._run_lifespan_tasks.<locals>.<lambda>(<Task finishe...id argument')>) at C:\Users\HinojosaDev\Downloads\ADA\Sft1\PQRS-1\.venv\Lib\site-packages\reflex\app_mixins\lifespan.py:53
+handle: <Handle LifespanMixin._run_lifespan_tasks.<locals>.<lambda>(<Task finishe...id argument')>) at C:\Users\HinojosaDev\Downloads\ADA\Sft1\PQRS-1\.venv\Lib\site-packages\reflex\app_mixins\lifespan.py:53>
+Traceback (most recent call last):
+  File "C:\Users\HinojosaDev\AppData\Local\Programs\Python\Python312\Lib\asyncio\events.py", line 88, in _run
+    self._context.run(self._callback, *self._args)
+  File "C:\Users\HinojosaDev\Downloads\ADA\Sft1\PQRS-1\.venv\Lib\site-packages\reflex\app_mixins\lifespan.py", line 53, in <lambda>
+    task_.add_done_callback(lambda t: t.result())
+                                      ^^^^^^^^^^
+  File "C:\Users\HinojosaDev\Downloads\ADA\Sft1\PQRS-1\.venv\Lib\site-packages\reflex\utils\compat.py", line 30, in windows_hot_reload_lifespan_hack
+    sys.stderr.flush()
+OSError: [Errno 22] Invalid argument
+2026-05-27 21:17:01,215 - alembic.runtime.migration - INFO - Context impl SQLiteImpl.
+2026-05-27 21:17:01,219 - alembic.runtime.migration - INFO - Will assume non-transactional DDL.
+2026-05-27 21:17:01,255 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.schemas
+2026-05-27 21:17:01,257 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.tables
+2026-05-27 21:17:01,257 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.types
+2026-05-27 21:17:01,257 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.constraints
+2026-05-27 21:17:01,259 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.defaults
+2026-05-27 21:17:01,260 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.comments
+2026-05-27 21:17:01,290 - alembic.autogenerate.compare.tables - INFO - Detected removed table 'solicitud_estado_historial'
+2026-05-27 21:19:38,470 - alembic.runtime.migration - INFO - Context impl SQLiteImpl.
+2026-05-27 21:19:38,470 - alembic.runtime.migration - INFO - Will assume non-transactional DDL.
+2026-05-27 21:19:38,553 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.schemas
+2026-05-27 21:19:38,553 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.tables
+2026-05-27 21:19:38,554 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.types
+2026-05-27 21:19:38,554 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.constraints
+2026-05-27 21:19:38,554 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.defaults
+2026-05-27 21:19:38,554 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.comments
+2026-05-27 21:19:38,591 - alembic.autogenerate.compare.tables - INFO - Detected removed table 'solicitud_estado_historial'
+2026-05-27 21:22:17,378 - asyncio - ERROR - Exception in callback LifespanMixin._run_lifespan_tasks.<locals>.<lambda>(<Task finishe...id argument')>) at C:\Users\HinojosaDev\Downloads\ADA\Sft1\PQRS-1\.venv\Lib\site-packages\reflex\app_mixins\lifespan.py:53
+handle: <Handle LifespanMixin._run_lifespan_tasks.<locals>.<lambda>(<Task finishe...id argument')>) at C:\Users\HinojosaDev\Downloads\ADA\Sft1\PQRS-1\.venv\Lib\site-packages\reflex\app_mixins\lifespan.py:53>
+Traceback (most recent call last):
+  File "C:\Users\HinojosaDev\AppData\Local\Programs\Python\Python312\Lib\asyncio\events.py", line 88, in _run
+    self._context.run(self._callback, *self._args)
+  File "C:\Users\HinojosaDev\Downloads\ADA\Sft1\PQRS-1\.venv\Lib\site-packages\reflex\app_mixins\lifespan.py", line 53, in <lambda>
+    task_.add_done_callback(lambda t: t.result())
+                                      ^^^^^^^^^^
+  File "C:\Users\HinojosaDev\Downloads\ADA\Sft1\PQRS-1\.venv\Lib\site-packages\reflex\utils\compat.py", line 30, in windows_hot_reload_lifespan_hack
+    sys.stderr.flush()
+OSError: [Errno 22] Invalid argument
+2026-05-27 21:32:12,817 - alembic.runtime.migration - INFO - Context impl SQLiteImpl.
+2026-05-27 21:32:12,817 - alembic.runtime.migration - INFO - Will assume non-transactional DDL.
+2026-05-27 21:32:12,864 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.schemas
+2026-05-27 21:32:12,865 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.tables
+2026-05-27 21:32:12,865 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.types
+2026-05-27 21:32:12,866 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.constraints
+2026-05-27 21:32:12,867 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.defaults
+2026-05-27 21:32:12,872 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.comments
+2026-05-27 21:32:12,949 - alembic.autogenerate.compare.tables - INFO - Detected removed table 'solicitud_estado_historial'
+2026-05-27 16:39:06,165 - alembic.runtime.migration - INFO - Context impl SQLiteImpl.
+2026-05-27 16:39:06,165 - alembic.runtime.migration - INFO - Will assume non-transactional DDL.
+2026-05-27 16:39:06,183 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.schemas
+2026-05-27 16:39:06,183 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.tables
+2026-05-27 16:39:06,185 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.types
+2026-05-27 16:39:06,186 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.constraints
+2026-05-27 16:39:06,193 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.defaults
+2026-05-27 16:39:06,194 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.comments
+2026-05-27 16:39:06,235 - alembic.autogenerate.compare.tables - INFO - Detected removed table 'solicitud_estado_historial'
+2026-05-27 17:30:42,377 - notificaciones - INFO - [respuesta_final] Correo enviado a hinolopez6@gmail.com (SMTP)
+2026-05-27 17:51:20,637 - alembic.runtime.migration - INFO - Context impl SQLiteImpl.
+2026-05-27 17:51:20,639 - alembic.runtime.migration - INFO - Will assume non-transactional DDL.
+2026-05-27 17:51:20,664 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.schemas
+2026-05-27 17:51:20,665 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.tables
+2026-05-27 17:51:20,666 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.types
+2026-05-27 17:51:20,668 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.constraints
+2026-05-27 17:51:20,677 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.defaults
+2026-05-27 17:51:20,679 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.comments
+2026-05-27 17:51:21,016 - alembic.autogenerate.compare.tables - INFO - Detected removed table 'solicitud_estado_historial'
+2026-05-27 18:02:47,948 - alembic.runtime.migration - INFO - Context impl SQLiteImpl.
+2026-05-27 18:02:47,960 - alembic.runtime.migration - INFO - Will assume non-transactional DDL.
+2026-05-27 18:02:48,013 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.schemas
+2026-05-27 18:02:48,024 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.tables
+2026-05-27 18:02:48,029 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.types
+2026-05-27 18:02:48,034 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.constraints
+2026-05-27 18:02:48,039 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.defaults
+2026-05-27 18:02:48,041 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.comments
+2026-05-27 18:02:48,094 - alembic.autogenerate.compare.tables - INFO - Detected removed table 'solicitud_estado_historial'
+2026-05-27 18:33:20,078 - notificaciones - INFO - [solicitud_creada] Correo enviado a joseluismosqueralargacha@gmail.com (SMTP)
+2026-05-27 21:05:58,209 - alembic.runtime.migration - INFO - Context impl SQLiteImpl.
+2026-05-27 21:05:58,209 - alembic.runtime.migration - INFO - Will assume non-transactional DDL.
+2026-05-27 21:05:58,216 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.schemas
+2026-05-27 21:05:58,216 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.tables
+2026-05-27 21:05:58,216 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.types
+2026-05-27 21:05:58,216 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.constraints
+2026-05-27 21:05:58,216 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.defaults
+2026-05-27 21:05:58,227 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.comments
+2026-05-27 21:05:58,277 - alembic.autogenerate.compare.tables - INFO - Detected removed table 'solicitud_estado_historial'
+2026-05-27 21:10:28,927 - alembic.runtime.migration - INFO - Context impl SQLiteImpl.
+2026-05-27 21:10:28,929 - alembic.runtime.migration - INFO - Will assume non-transactional DDL.
+2026-05-27 21:10:28,953 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.schemas
+2026-05-27 21:10:28,956 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.tables
+2026-05-27 21:10:28,993 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.types
+2026-05-27 21:10:28,994 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.constraints
+2026-05-27 21:10:28,994 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.defaults
+2026-05-27 21:10:28,995 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.comments
+2026-05-27 21:10:29,036 - alembic.autogenerate.compare.tables - INFO - Detected removed table 'solicitud_estado_historial'
+2026-05-27 21:51:53,838 - alembic.runtime.migration - INFO - Context impl SQLiteImpl.
+2026-05-27 21:51:53,840 - alembic.runtime.migration - INFO - Will assume non-transactional DDL.
+2026-05-27 21:51:53,864 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.schemas
+2026-05-27 21:51:53,882 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.tables
+2026-05-27 21:51:53,883 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.types
+2026-05-27 21:51:53,885 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.constraints
+2026-05-27 21:51:53,895 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.defaults
+2026-05-27 21:51:53,897 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.comments
+2026-05-27 21:51:53,943 - alembic.autogenerate.compare.tables - INFO - Detected removed table 'solicitud_estado_historial'
+2026-05-27 22:26:14,197 - alembic.runtime.migration - INFO - Context impl SQLiteImpl.
+2026-05-27 22:26:14,199 - alembic.runtime.migration - INFO - Will assume non-transactional DDL.
+2026-05-27 22:26:14,215 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.schemas
+2026-05-27 22:26:14,219 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.tables
+2026-05-27 22:26:14,220 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.types
+2026-05-27 22:26:14,221 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.constraints
+2026-05-27 22:26:14,223 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.defaults
+2026-05-27 22:26:14,227 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.comments
+2026-05-27 22:26:14,259 - alembic.autogenerate.compare.tables - INFO - Detected removed table 'solicitud_estado_historial'
+2026-05-27 22:59:04,952 - httpx - INFO - HTTP Request: POST https://app.posthog.com/capture/ "HTTP/1.1 200 OK"
+2026-05-27 23:00:07,808 - httpx - INFO - HTTP Request: POST https://app.posthog.com/capture/ "HTTP/1.1 200 OK"
+2026-05-27 23:02:29,907 - alembic.runtime.migration - INFO - Context impl SQLiteImpl.
+2026-05-27 23:02:29,907 - alembic.runtime.migration - INFO - Will assume non-transactional DDL.
+2026-05-27 23:02:29,926 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.schemas
+2026-05-27 23:02:29,926 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.tables
+2026-05-27 23:02:29,926 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.types
+2026-05-27 23:02:29,934 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.constraints
+2026-05-27 23:02:29,935 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.defaults
+2026-05-27 23:02:29,937 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.comments
+2026-05-27 23:02:29,987 - alembic.autogenerate.compare.tables - INFO - Detected removed table 'solicitud_estado_historial'
+2026-05-27 23:32:05,777 - alembic.runtime.migration - INFO - Context impl SQLiteImpl.
+2026-05-27 23:32:05,780 - alembic.runtime.migration - INFO - Will assume non-transactional DDL.
+2026-05-27 23:32:05,798 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.schemas
+2026-05-27 23:32:05,800 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.tables
+2026-05-27 23:32:05,820 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.types
+2026-05-27 23:32:05,822 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.constraints
+2026-05-27 23:32:05,824 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.defaults
+2026-05-27 23:32:05,824 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.comments
+2026-05-27 23:32:05,858 - alembic.autogenerate.compare.tables - INFO - Detected removed table 'solicitud_estado_historial'

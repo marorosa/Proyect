@@ -97,6 +97,23 @@ SAMPLE_USUARIOS = [
         "acepta_notificaciones": True,
         "acepta_politica_datos": True,
     },
+    {
+        "email": "hinolopez6@gmail.com",
+        "password": "Hino2026!",
+        "nombres": "Hino",
+        "apellidos": "López",
+        "tipo_identificacion": "Cédula de ciudadanía",
+        "numero_identificacion": "1234567890",
+        "sexo": "Otro",
+        "direccion": "Calle Falsa 123",
+        "telefono": "3111234567",
+        "departamento": "Cundinamarca",
+        "ciudad": "Bogotá",
+        "etnia": "Ninguna",
+        "persona_vulnerable": "Ninguna",
+        "acepta_notificaciones": True,
+        "acepta_politica_datos": True,
+    },
 ]
 
 INSERT_SQL = """
