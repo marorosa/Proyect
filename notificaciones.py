@@ -289,7 +289,8 @@ def template_cambio_estado(
     estado_anterior: str,
     estado_nuevo: str,
     fecha_cambio: str,
-    observaciones: Optional[str] = None
+    observaciones: Optional[str] = None,
+    area_asignada: Optional[str] = None,
 ) -> str:
     """Plantilla moderna para notificar cambio de estado."""
 
@@ -313,6 +314,17 @@ def template_cambio_estado(
           <p style="margin:0 0 4px;color:#4f46e5;font-size:11px;font-weight:700;
                     text-transform:uppercase;letter-spacing:1px;">Observaciones</p>
           <p style="margin:0;color:#334155;font-size:14px;line-height:1.6;">{observaciones}</p>
+        </div>"""
+
+    area_bloque = ""
+    if area_asignada:
+        area_bloque = f"""
+        <div style="background:linear-gradient(135deg,#fffbeb,#fef3c7);border:1px solid #fde68a;
+                    border-left:4px solid #f59e0b;border-radius:0 10px 10px 0;
+                    padding:16px 20px;margin:16px 0;">
+          <p style="margin:0 0 4px;color:#b45309;font-size:11px;font-weight:700;
+                    text-transform:uppercase;letter-spacing:1px;">🏢 Área Asignada</p>
+          <p style="margin:0;color:#92400e;font-size:15px;font-weight:700;">{area_asignada}</p>
         </div>"""
 
     contenido = f"""
@@ -358,6 +370,8 @@ def template_cambio_estado(
       {_info_row("🔖", "Radicado", numero_solicitud)}
       {_info_row("🕐", "Fecha de cambio", fecha_cambio)}
     </table>
+
+    {area_bloque}
 
     {obs_bloque}
 
@@ -506,6 +520,7 @@ def notificar_cambio_estado(
     observaciones: Optional[str] = None,
     correos_adicionales: Optional[List[str]] = None,
     adjuntos: Optional[List[str]] = None,
+    area_asignada: Optional[str] = None,
 ) -> Dict:
     """Notifica cuando cambia el estado de una solicitud."""
     destinatarios = [correo_solicitante]
@@ -518,7 +533,8 @@ def notificar_cambio_estado(
         estado_anterior,
         estado_nuevo,
         fecha_cambio,
-        observaciones
+        observaciones,
+        area_asignada,
     )
 
     return enviar_correo(
