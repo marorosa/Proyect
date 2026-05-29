@@ -627,6 +627,13 @@ class State(rx.State):
     respuesta_documento_nombre: str = ""
     respuesta_documento_preview_src: str = ""
     respuesta_documento_es_imagen: bool = False
+    # HU9 y HU11: historial, calificación, estados
+    historial_solicitud: list[dict[str, Any]] = []
+    calificacion_seleccionada: int = 0
+    calificacion_mensaje: str = ""
+    ESTADOS_VALIDOS: list[str] = ["Radicada", "Asignada a Area", "En Gestion de Area", "Solucionada", "Reabierta", "Cerrada"]
+    AREAS_DISPONIBLES: list[str] = ["Atención al Ciudadano", "Infraestructura", "Servicios Públicos", "Medio Ambiente", "Salud Pública", "Educación", "Secretaría Jurídica", "Planeación", "Hacienda"]
+    area_para_asignar: str = ""
     # Variables para modal de política y validaciones
     modal_politica_visible: bool = False
     archivo_error_mensaje: str = ""
@@ -664,6 +671,20 @@ class State(rx.State):
     def es_autenticada(self) -> bool:
         """Normaliza la cookie de sesión a booleano."""
         return str(self.es_autentica or "").strip().lower() in {"true", "1", "yes", "si", "sí"}
+
+    @rx.var
+    def home_url(self) -> str:
+        """Retorna la URL de inicio dependiendo del estado de autenticación."""
+        if self.es_autenticada:
+            if self.rol_usuario == "funcionario":
+                return "/dashboard-funcionario"
+            return "/dashboard"
+        return "/"
+
+    def redirigir_si_autenticado(self):
+        """Redirige automáticamente al usuario a su panel si ya tiene una sesión activa."""
+        if self.es_autenticada:
+            return rx.redirect(self.home_url)
 
     @rx.var
     def ciudades_disponibles(self) -> list[str]:
@@ -1634,18 +1655,20 @@ class State(rx.State):
         path_val = str(getattr(upload, "path", "") or "")
         mime = self._infer_mime_type(name)
         src = ""
-        if mime.startswith("image/"):
-            try:
-                file_obj = getattr(upload, "file", None)
-                if file_obj is not None:
-                    if hasattr(file_obj, "seek"):
-                        file_obj.seek(0)
-                    content_bytes = file_obj.read()
-                    if content_bytes:
-                        src = f"data:{mime};base64,{base64.b64encode(content_bytes).decode('utf-8')}"
-            except Exception:
-                src = ""
-        return {"name": str(name), "size": size, "path": path_val, "src": src, "mime": mime}
+        content_b64 = ""
+        try:
+            file_obj = getattr(upload, "file", None)
+            if file_obj is not None:
+                if hasattr(file_obj, "seek"):
+                    file_obj.seek(0)
+                content_bytes = file_obj.read()
+                if content_bytes:
+                    content_b64 = base64.b64encode(content_bytes).decode("utf-8")
+                    if mime.startswith("image/"):
+                        src = f"data:{mime};base64,{content_b64}"
+        except Exception:
+            content_b64 = ""
+        return {"name": str(name), "size": size, "path": path_val, "src": src, "mime": mime, "content": content_b64}
 
     def set_documento(self, documento: list[rx.UploadFile]):
         """Actualiza adjuntos del ciudadano sin guardar UploadFile en el estado."""
@@ -1749,6 +1772,12 @@ class State(rx.State):
 
     def set_nuevo_estado(self, val: str):
         self.nuevo_estado = val
+        if val != "Asignada a Area":
+            self.area_para_asignar = ""
+
+    def set_area_para_asignar(self, val: str):
+        self.area_para_asignar = val
+
 
     def set_respuesta_solicitud(self, val: str):
         self.respuesta_solicitud = val
@@ -1869,13 +1898,18 @@ class State(rx.State):
         self.error_de_registro = ""
 
     def actualizar_estado_solicitud(self, files: Any = None):
-        """Actualiza el estado de una solicitud con validación para cerrada y guarda historial."""
+        """Actualiza el estado de una solicitud con validación para cerrada y guarda historial. HU9."""
         self.mensaje_actualizar_estado = ""
         if not self.editar_estado_id or not self.nuevo_estado:
             self.mensaje_actualizar_estado = "Selecciona un estado válido."
             return
-        if self.nuevo_estado == "Cerrada" and not self.respuesta_solicitud:
-            self.mensaje_actualizar_estado = "No puedes cerrar una solicitud sin escribir una respuesta."
+        # HU9: justificación obligatoria para CUALQUIER cambio de estado
+        if not str(self.respuesta_solicitud or "").strip():
+            self.mensaje_actualizar_estado = "Debes escribir una justificación para el cambio de estado."
+            return
+        # Si es Asignada a Area, validar que el area estÃ© seleccionada
+        if self.nuevo_estado == "Asignada a Area" and not str(self.area_para_asignar or "").strip():
+            self.mensaje_actualizar_estado = "Selecciona el área a la que se va a asignar la solicitud."
             return
         documento_respuesta_guardado = ""
         fuente_documento = files if files else self.respuesta_documento
@@ -1896,6 +1930,7 @@ class State(rx.State):
             except Exception as e:
                 print(f"Error guardando documento de respuesta: {e}")
         estado_nuevo = self.nuevo_estado
+        area_asignada = self.area_para_asignar if self.nuevo_estado == "Asignada a Area" else ""
         respuesta_enviada = self.respuesta_solicitud or ""
         datos_notificacion: dict[str, Any] | None = None
         try:
@@ -1906,6 +1941,9 @@ class State(rx.State):
                     return
                 estado_anterior = solicitud_obj.estado
                 solicitud_obj.estado = estado_nuevo
+                # Si se asigna a un área, guardar en campo area_responsable
+                if area_asignada:
+                    solicitud_obj.area_responsable = area_asignada
                 if respuesta_enviada:
                     solicitud_obj.respuesta = respuesta_enviada
                 closed_states = {"cerrada", "resuelta", "finalizada", "respondida"}
@@ -1920,6 +1958,7 @@ class State(rx.State):
                     estado_nuevo=estado_nuevo,
                     fecha_cambio=datetime.now(),
                     observaciones=respuesta_enviada or None,
+                    documento_adjunto=os.path.basename(documento_respuesta_guardado) if documento_respuesta_guardado else None,
                 )
                 session.add(historial)
                 session.commit()
@@ -1940,11 +1979,13 @@ class State(rx.State):
                     "estado_anterior": estado_anterior,
                     "estado_nuevo": estado_nuevo,
                     "respuesta": respuesta_enviada,
+                    "area_asignada": area_asignada or (solicitud_obj.area_responsable or ""),
                 }
 
             self.mensaje_actualizar_estado = f"Estado actualizado a '{estado_nuevo}' correctamente."
             self.editar_estado_id = 0
             self.nuevo_estado = ""
+            self.area_para_asignar = ""
             self.respuesta_solicitud = ""
             self.respuesta_documento = ""
             self.respuesta_documento_nombre = ""
@@ -1971,7 +2012,11 @@ class State(rx.State):
                             adjuntos=adjuntos_correo or None,
                         )
                     else:
+                        area_en_obs = datos_notificacion.get("area_asignada", "")
                         observaciones = datos_notificacion["respuesta"] or None
+                        # Si el estado es Asignada a Area o En Gestion de Area, mencionar el área en la notificación
+                        if datos_notificacion["estado_nuevo"] in ("Asignada a Area", "En Gestion de Area") and area_en_obs:
+                            observaciones = f"Tu solicitud ha sido asignada al área de {area_en_obs}.\n\n" + (observaciones or "")
                         if documento_respuesta_guardado:
                             doc_name = os.path.basename(documento_respuesta_guardado)
                             nota_doc, adjuntos_correo = formatear_nota_documento(
@@ -2146,6 +2191,8 @@ Sistema PQRS
             "fecha": solicitud.fecha.strftime("%Y-%m-%d %H:%M") if isinstance(solicitud.fecha, datetime) else str(solicitud.fecha),
             "creado_por": solicitud.creado_por,
            "usuario_id": solicitud.usuario_id,
+            "calificacion_servicio": solicitud.calificacion_servicio,
+            "fecha_consulta_ciudadano": solicitud.fecha_consulta_ciudadano.isoformat() if solicitud.fecha_consulta_ciudadano else None,
         
         
         }
@@ -2739,6 +2786,26 @@ Sistema PQRS
         except Exception as e:
             self.solicitud_mensaje = f"Error cargando solicitud: {e}"
 
+    mostrar_rastreador: bool = False
+
+    def toggle_rastreador(self):
+        """Muestra u oculta el campo de rastreo en el dashboard."""
+        self.mostrar_rastreador = not self.mostrar_rastreador
+
+    def consultar_desde_dashboard(self):
+        """Ejecuta la consulta y redirige a la página de consulta para ver los resultados."""
+        self.consultar_estado_solicitud()
+        return rx.redirect("/consultar-estado")
+
+    def cerrar_consulta(self):
+        """Limpia los campos de consulta y regresa al inicio."""
+        self.consulta_radicado = ""
+        self.solicitud_consultada = {}
+        self.historial_solicitud = []
+        if self.es_autentica:
+            return rx.redirect("/dashboard")
+        return rx.redirect("/")
+
     def consultar_estado_solicitud(self):
         """Consulta el estado de una solicitud por número de radicado"""
         self.consulta_mensaje = ""
@@ -2758,11 +2825,134 @@ Sistema PQRS
                     self.consulta_mensaje = "No se encontró una solicitud con ese número de radicado."
                     return
                 
+                # HU11: registrar fecha_consulta_ciudadano si la solicitud es Solucionada y aún no se registró
+                if str(solicitud.estado or "").strip().lower() == "solucionada" and not solicitud.fecha_consulta_ciudadano:
+                    solicitud.fecha_consulta_ciudadano = datetime.now()
+                    session.add(solicitud)
+                    session.commit()
+                    session.refresh(solicitud)
+
                 self.solicitud_consultada = self._solicitud_a_dict(solicitud)
+                # HU11: cargar historial de cambios
+                self.cargar_historial_solicitud(solicitud.id, session)
                 self.consulta_mensaje = "Solicitud encontrada."
                 
         except Exception as e:
             self.consulta_mensaje = f"Error consultando solicitud: {e}"
+
+    def cargar_historial_solicitud(self, solicitud_id: int, session=None):
+        """Carga el historial de cambios de estado de una solicitud. HU11."""
+        try:
+            def _query(s):
+                items = s.exec(
+                    select(SolicitudEstadoHistorial)
+                    .where(SolicitudEstadoHistorial.solicitud_id == solicitud_id)
+                    .order_by(SolicitudEstadoHistorial.fecha_cambio.desc())
+                ).all()
+                self.historial_solicitud = [
+                    {
+                        "estado_anterior": h.estado_anterior,
+                        "estado_nuevo": h.estado_nuevo,
+                        "fecha_cambio": h.fecha_cambio.strftime("%d/%m/%Y %H:%M") if isinstance(h.fecha_cambio, datetime) else str(h.fecha_cambio),
+                        "observaciones": h.observaciones or "",
+                        "documento_adjunto": h.documento_adjunto or "",
+                    }
+                    for h in items
+                ]
+            if session:
+                _query(session)
+            else:
+                with Session(engine) as s:
+                    _query(s)
+        except Exception as e:
+            print(f"Error cargando historial: {e}")
+            self.historial_solicitud = []
+
+    def calificar_solicitud(self, estrellas_str: str):
+        """Registra la calificación del ciudadano para una solicitud solucionada. HU11."""
+        self.calificacion_mensaje = ""
+        try:
+            estrellas = int(str(estrellas_str).split(" - ")[0])
+        except Exception:
+            self.calificacion_mensaje = "Calificación inválida."
+            return
+        radicado = self.solicitud_consultada.get("radicado", "")
+        if not radicado:
+            self.calificacion_mensaje = "Primero consulta una solicitud."
+            return
+        if estrellas < 1 or estrellas > 5:
+            self.calificacion_mensaje = "Calificación inválida."
+            return
+        try:
+            with Session(engine) as session:
+                sol = session.exec(
+                    select(Solicitud).where(Solicitud.radicado == radicado)
+                ).first()
+                if not sol:
+                    self.calificacion_mensaje = "Solicitud no encontrada."
+                    return
+                if sol.calificacion_servicio is not None:
+                    self.calificacion_mensaje = "Ya has calificado este servicio."
+                    return
+                sol.calificacion_servicio = estrellas
+                sol.estado = "Cerrada"
+                # Guardar el registro en historial
+                h = SolicitudEstadoHistorial(
+                    solicitud_id=sol.id,
+                    estado_anterior="Solucionada",
+                    estado_nuevo="Cerrada",
+                    fecha_cambio=datetime.now(),
+                    observaciones=f"Ciudadano calificó el servicio con {estrellas} estrella(s).",
+                )
+                session.add(sol)
+                session.add(h)
+                session.commit()
+            self.calificacion_seleccionada = estrellas
+            self.solicitud_consultada = {**self.solicitud_consultada, "calificacion_servicio": estrellas, "estado": "Cerrada"}
+            self.cargar_historial_solicitud(self.solicitud_consultada.get("id", 0))
+            self.calificacion_mensaje = f"¡Gracias! Has calificado el servicio con {estrellas} estrella(s)."
+        except Exception as e:
+            self.calificacion_mensaje = f"Error al calificar: {e}"
+
+    def auto_cerrar_solucionadas(self):
+        """Cierra automáticamente con calificación 5 las PQRS 'Solucionadas' con >5 días hábiles sin evaluar. HU11."""
+        from datetime import date, timedelta
+        try:
+            with Session(engine) as session:
+                solucionadas = session.exec(
+                    select(Solicitud)
+                    .where(Solicitud.estado == "Solucionada")
+                    .where(Solicitud.calificacion_servicio == None)
+                    .where(Solicitud.fecha_consulta_ciudadano != None)
+                ).all()
+                hoy = date.today()
+                for sol in solucionadas:
+                    fecha_consulta = sol.fecha_consulta_ciudadano.date() if sol.fecha_consulta_ciudadano else None
+                    if not fecha_consulta:
+                        continue
+                    # Calcular días hábiles desde consulta
+                    dias_habiles = 0
+                    cur = fecha_consulta + timedelta(days=1)
+                    while cur <= hoy:
+                        if cur.weekday() < 5:  # Lunes a viernes
+                            dias_habiles += 1
+                        cur += timedelta(days=1)
+                    if dias_habiles >= 5:
+                        sol.calificacion_servicio = 5
+                        sol.estado = "Cerrada"
+                        h = SolicitudEstadoHistorial(
+                            solicitud_id=sol.id,
+                            estado_anterior="Solucionada",
+                            estado_nuevo="Cerrada",
+                            fecha_cambio=datetime.now(),
+                            observaciones="Cierre automático: ciudadano no evaluó en 5 días hábiles. Calificación asignada: 5.",
+                        )
+                        session.add(sol)
+                        session.add(h)
+                session.commit()
+        except Exception as e:
+            print(f"Error en auto_cerrar_solucionadas: {e}")
+
 
     def cargar_usuarios(self):
         """Carga la lista de usuarios registrados en el sistema"""
@@ -3550,78 +3740,116 @@ def auth_card(title: str, on_submit, show_confirm: bool = False) -> rx.Component
 
 
 
+def nav_icon_link(icon_name: str, text: str, href: str, active: bool = False, display_cond=None) -> rx.Component:
+    link_content = rx.link(
+        rx.hstack(
+            rx.icon(icon_name, size=20, color="rgba(255,255,255,0.85)", transition="transform 0.2s ease"),
+            rx.text(
+                text,
+                class_name="nav-text",
+                color="white",
+                font_weight="600",
+                font_size="13px",
+                white_space="nowrap",
+                opacity="0",
+                max_width="0px",
+                overflow="hidden",
+                transition="all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                margin_left="0px"
+            ),
+            align_items="center",
+            padding="8px",
+            border_radius="12px",
+            bg="rgba(255,255,255,0.15)" if active else "transparent",
+            transition="all 0.2s ease",
+            _hover={
+                "bg": "rgba(255,255,255,0.25)",
+                "& > svg": {
+                    "color": "white",
+                    "transform": "scale(1.1)"
+                },
+                "& .nav-text": {
+                    "opacity": "1",
+                    "max_width": "200px",
+                    "margin_left": "8px"
+                }
+            }
+        ),
+        href=href,
+        text_decoration="none"
+    )
+    if display_cond is not None:
+        return rx.cond(display_cond, link_content, rx.box(display="none"))
+    return link_content
+
 def navbar() -> rx.Component:
     return rx.box(
         rx.hstack(
-            rx.hstack(
-                rx.cond(
-                    State.es_autenticada,
-                    rx.cond(
-                        State.rol_usuario == "funcionario",
-                        # Menú de Funcionario
-                        rx.hstack(
-                            rx.link("Inicio", href="/", color="white", font_weight="bold", _hover={"opacity": 0.8}),
-                            rx.link("Nueva Solicitud", href="/solicitudes", color="white", font_weight="bold", _hover={"opacity": 0.8}),
-                            rx.link("Registro de Ciudadano", href="/registro", color="white", font_weight="bold", _hover={"opacity": 0.8}),
-                            spacing="6",
-                        ),
-                        # Menú de Ciudadano (Limpio)
-                        rx.hstack(
-                            rx.link("Nueva Solicitud", href="/solicitudes", color="white", font_weight="bold", _hover={"opacity": 0.8}),
-                            spacing="6",
-                        )
+            # Logo / marca
+            rx.link(
+                rx.hstack(
+                    rx.box(
+                        rx.icon("shield-check", size=18, color="#e85d04"),
+                        width="36px", height="36px",
+                        border_radius="10px",
+                        bg="rgba(232,93,4,0.18)",
+                        display="flex", align_items="center", justify_content="center", flex_shrink="0",
                     ),
-                    # Menú Anónimo
-                    rx.hstack(
-                        rx.link("Inicio", href="/", color="white", font_weight="bold", _hover={"opacity": 0.8}),
-                        rx.link("Nueva Solicitud", href="/solicitudes", color="white", font_weight="bold", _hover={"opacity": 0.8}),
-                        rx.link("Registro de Ciudadano", href="/registro", color="white", font_weight="bold", _hover={"opacity": 0.8}),
-                        spacing="6",
-                    )
+                    rx.text("PQRS", font_size="18px", font_weight="800", color="white", letter_spacing="-0.01em"),
+                    spacing="3", align_items="center",
                 ),
-                rx.cond(
-                    State.es_autenticada & (State.rol_usuario == "funcionario"),
-                    rx.link("Reportes", href="/reportes", color="white", font_weight="bold", _hover={"opacity": 0.8})
-                ),
-                rx.cond(
-                    State.es_autenticada & (State.rol_usuario == "funcionario"),
-                    rx.link("Ayuda", href="/ayuda-funcionario", color="white", font_weight="bold", _hover={"opacity": 0.8})
-                ),
-                rx.text("", display="none"),
-                rx.cond(
-                    State.es_autenticada & (State.rol_usuario == "funcionario"),
-                    rx.link("Ver Usuarios", href="/usuarios", color="white", font_weight="bold", _hover={"opacity": 0.8}),
-                    rx.text("", display="none")
-                ),
-                rx.cond(
-                    State.es_autenticada & (State.rol_usuario == "funcionario"),
-                    rx.link("Cambiar Rol", href="/cambiar-rol", color="white", font_weight="bold", _hover={"opacity": 0.8}),
-                    rx.text("", display="none")
-                ),
-                rx.cond(
-                    State.es_autenticada,
-                    rx.cond(
-                        State.rol_usuario == "funcionario",
-                        rx.link("Dashboard Funcionario", href="/dashboard-funcionario", color="white", font_weight="bold", _hover={"opacity": 0.8}),
-                        rx.link("Mi Panel", href="/dashboard", color="white", font_weight="bold", _hover={"opacity": 0.8})
-                    ),
-                    rx.text("", display="none")
-                ),
-                spacing="6",
+                href=State.home_url, text_decoration="none", flex_shrink="0",
             ),
+            
+            rx.box(width="1px", height="24px", bg="rgba(255,255,255,0.2)", margin_x="4"),
+            
+            # Navegación con iconos dinámicos
             rx.hstack(
-                rx.color_mode.button(),
+                nav_icon_link("home", "Inicio", State.home_url),
+                nav_icon_link("file-plus", "Nueva Solicitud", "/solicitudes", display_cond=State.es_autenticada),
+                
+                # Opciones de Funcionario
+                nav_icon_link("bar-chart-2", "Reportes", "/reportes", display_cond=State.es_autenticada & (State.rol_usuario == "funcionario")),
+                nav_icon_link("users", "Ver Usuarios", "/usuarios", display_cond=State.es_autenticada & (State.rol_usuario == "funcionario")),
+                nav_icon_link("user-plus", "Registrar Func.", "/registro-funcionario", display_cond=State.es_autenticada & (State.rol_usuario == "funcionario")),
+                nav_icon_link("settings", "Cambiar Rol", "/cambiar-rol", display_cond=State.es_autenticada & (State.rol_usuario == "funcionario")),
+                nav_icon_link("help-circle", "Ayuda", "/ayuda-funcionario", display_cond=State.es_autenticada & (State.rol_usuario == "funcionario")),
+                
+                # Dashboards
+                nav_icon_link("layout", "Dashboard Func.", "/dashboard-funcionario", active=True, display_cond=State.es_autenticada & (State.rol_usuario == "funcionario")),
+                nav_icon_link("layout", "Mi Panel", "/dashboard", active=True, display_cond=State.es_autenticada & (State.rol_usuario != "funcionario")),
+                
+                spacing="2",
+                align_items="center",
+                flex_wrap="nowrap",
+                overflow_x="auto"
+            ),
+            
+            rx.spacer(),
+            
+            # Controles derecha
+            rx.hstack(
+                rx.color_mode.button(color="rgba(255,255,255,0.8)", _hover={"color": "white"}),
                 rx.cond(
                     State.es_autenticada,
-                    rx.button("Cerrar Sesión", on_click=State.logout, color_scheme="red", variant="solid"),
-                    rx.text("", display="none")
+                    rx.button(
+                        rx.icon("log-out", size=16),
+                        "Salir",
+                        on_click=State.logout,
+                        color_scheme="red",
+                        variant="soft",
+                        radius="full"
+                    ),
+                    rx.box(display="none")
                 ),
-                spacing="2", align_items="center"
+                spacing="4", align_items="center"
             ),
-            justify="between", align_items="center", width="100%", max_width="none", margin="0",
+            justify="between", align_items="center", width="100%", max_width="1400px", margin="0 auto"
         ),
-        bg=rx.color_mode_cond(light="#1e40af", dark="#1e3a8a"),
-        padding_y="1em", padding_x="2em", width="100%", style={"margin": "0", "padding": "1em 2em"}
+        bg=rx.color_mode_cond(light="linear-gradient(90deg, #1e3a8a 0%, #1e40af 100%)", dark="linear-gradient(90deg, #0f172a 0%, #172554 100%)"),
+        padding_y="12px", padding_x={"base": "16px", "md": "32px"}, width="100%",
+        box_shadow="0 4px 20px -2px rgba(0, 0, 0, 0.2)",
+        position="sticky", top="0", z_index="50", border_bottom="1px solid rgba(255,255,255,0.1)"
     )
 
 
@@ -3651,23 +3879,22 @@ def access_denied_widget(message: str) -> rx.Component:
 
 def utility_bar() -> rx.Component:
     return rx.hstack(
-        rx.link("GOV.CO", href="/", font_weight="bold", color="white", text_decoration="none"),
+        rx.link(
+            rx.hstack(rx.icon("globe", size=14), rx.text("GOV.CO"), spacing="2", align_items="center"),
+            href="/", font_weight="bold", color="rgba(255,255,255,0.9)", text_decoration="none", _hover={"color": "white"}
+        ),
         rx.spacer(),
         rx.hstack(
-            rx.link("Opciones de Accesibilidad", href="#", font_size="sm", color="white", text_decoration="none"),
-            rx.text("|", color="white"),
-            rx.link("Inicia sesión", href="/login", font_size="sm", color="white", text_decoration="none"),
-            rx.text("|", color="white"),
-            rx.link("Regístrate", href="/registro", font_size="sm", color="white", text_decoration="none"),
-            spacing="4",
-            align_items="center"
+            rx.link(rx.hstack(rx.icon("accessibility", size=14), rx.text("Accesibilidad"), spacing="1"), href="#", font_size="xs", color="rgba(255,255,255,0.8)", text_decoration="none", _hover={"color": "white"}),
+            rx.text("|", color="rgba(255,255,255,0.3)"),
+            rx.link(rx.hstack(rx.icon("log-in", size=14), rx.text("Inicia sesión"), spacing="1"), href="/login", font_size="xs", color="rgba(255,255,255,0.8)", text_decoration="none", _hover={"color": "white"}),
+            rx.text("|", color="rgba(255,255,255,0.3)"),
+            rx.link(rx.hstack(rx.icon("user-plus", size=14), rx.text("Regístrate"), spacing="1"), href="/registro", font_size="xs", color="rgba(255,255,255,0.8)", text_decoration="none", _hover={"color": "white"}),
+            spacing="4", align_items="center"
         ),
-        width="100%",
-        padding_x="16px",
-        padding_y="3",
+        width="100%", padding_x="24px", padding_y="8px",
         bg=rx.color_mode_cond(light="#0f172a", dark="#020617"),
-        border_bottom="1px solid rgba(255,255,255,0.08)",
-        style={"margin": "0", "padding": "0.75rem 16px"}
+        border_bottom="1px solid rgba(255,255,255,0.08)"
     )
 def toast_notification() -> rx.Component:
     return rx.cond(
@@ -5306,22 +5533,87 @@ def dashboard() -> rx.Component:
         box_shadow="0 25px 50px -12px rgba(0, 0, 0, 0.05)", height="100%", width="100%", grid_row="span 2"
     )
 
-    # Bloque B: Banner de Acción Rápida (Arriba Derecha)
+    # Bloque B: Nueva Solicitud (estilo kpi_metric_card)
+    _kpi_card_bg = rx.color_mode_cond(light="#ffffff", dark="#0f1e35")
     bento_action = rx.box(
-        rx.hstack(
+        rx.vstack(
+            rx.hstack(
+                rx.box(
+                    rx.icon("file-plus-2", size=18, color="#3b82f6"),
+                    bg=rx.color_mode_cond(light="#eff6ff", dark="rgba(59,130,246,0.18)"),
+                    border_radius="10px",
+                    width="38px", height="38px",
+                    display="flex", align_items="center", justify_content="center",
+                    flex_shrink="0",
+                ),
+                rx.spacer(),
+                width="100%"
+            ),
             rx.vstack(
-                rx.heading("¿Necesitas iniciar un trámite?", size="6", color=text_color),
-                rx.text("Radica tu Petición, Queja, Reclamo o Sugerencia en minutos.", color=subtext_color),
-                align_items="start", spacing="2"
+                rx.text("Nueva", font_size="2rem", font_weight="800", color=text_color, line_height="1", letter_spacing="-0.03em"),
+                rx.text("Crear Solicitud PQRS", font_size="12px", color=subtext_color, font_weight="500"),
+                rx.link(
+                    rx.button("Crear ahora ", rx.icon("arrow-right", size=14), size="2", color_scheme="blue", radius="full", margin_top="2"),
+                    href="/solicitudes"
+                ),
+                spacing="1", align_items="start"
             ),
-            rx.spacer(),
-            rx.link(
-                rx.button(rx.icon("plus", size=20), "Nueva Solicitud", color_scheme="blue", size="4", radius="full", box_shadow="0 10px 15px -3px rgba(59, 130, 246, 0.4)", _hover={"transform": "scale(1.05)"}, transition="all 0.2s"),
-                href="/solicitudes"
-            ),
-            width="100%", align_items="center", justify="between", flex_wrap="wrap"
+            spacing="3", align_items="start", width="100%"
         ),
-        p="8", bg=accent_bg, border=card_border, border_radius="3xl", box_shadow="0 10px 15px -3px rgba(0,0,0,0.05)", width="100%", backdrop_filter="blur(16px)"
+        bg=_kpi_card_bg,
+        border=rx.color_mode_cond(light="1px solid #e2e8f0", dark="1px solid #1e3a5f"),
+        border_top="3px solid #3b82f6",
+        border_radius="14px",
+        padding="18px 20px",
+        box_shadow=rx.color_mode_cond(light="0 1px 3px rgba(0,0,0,0.05)", dark="0 2px 12px rgba(0,0,0,0.3)"),
+        transition="transform 0.18s ease, box-shadow 0.18s ease",
+        _hover={"transform": "translateY(-3px)", "box_shadow": "0 8px 24px rgba(59,130,246,0.2)"},
+        width="100%"
+    )
+
+    # Bloque B2: Rastrea Solicitud (estilo kpi_metric_card)
+    bento_consulta = rx.box(
+        rx.vstack(
+            rx.hstack(
+                rx.box(
+                    rx.icon("search", size=18, color="#8b5cf6"),
+                    bg=rx.color_mode_cond(light="#f5f3ff", dark="rgba(139,92,246,0.18)"),
+                    border_radius="10px",
+                    width="38px", height="38px",
+                    display="flex", align_items="center", justify_content="center",
+                    flex_shrink="0",
+                ),
+                rx.spacer(),
+                width="100%"
+            ),
+            rx.vstack(
+                rx.text("Rastrea", font_size="2rem", font_weight="800", color=text_color, line_height="1", letter_spacing="-0.03em"),
+                rx.text("Consultar estado de tu solicitud", font_size="12px", color=subtext_color, font_weight="500"),
+                rx.hstack(
+                    rx.input(
+                        placeholder="Número de radicado...",
+                        value=State.consulta_radicado,
+                        on_change=State.set_consulta_radicado,
+                        bg=rx.color_mode_cond(light="#f8fafc", dark="#0f172a"),
+                        border=rx.color_mode_cond(light="1px solid #e2e8f0", dark="1px solid #1e3a5f"),
+                        size="2", radius="full", width="100%"
+                    ),
+                    rx.button(rx.icon("arrow-right", size=14), on_click=State.consultar_desde_dashboard, color_scheme="purple", size="2", radius="full"),
+                    width="100%", margin_top="2", spacing="2"
+                ),
+                spacing="1", align_items="start"
+            ),
+            spacing="3", align_items="start", width="100%"
+        ),
+        bg=_kpi_card_bg,
+        border=rx.color_mode_cond(light="1px solid #e2e8f0", dark="1px solid #1e3a5f"),
+        border_top="3px solid #8b5cf6",
+        border_radius="14px",
+        padding="18px 20px",
+        box_shadow=rx.color_mode_cond(light="0 1px 3px rgba(0,0,0,0.05)", dark="0 2px 12px rgba(0,0,0,0.3)"),
+        transition="transform 0.18s ease, box-shadow 0.18s ease",
+        _hover={"transform": "translateY(-3px)", "box_shadow": "0 8px 24px rgba(139,92,246,0.2)"},
+        width="100%"
     )
 
     # Bloque C: Bandeja de Entrada (Grid Inferior)
@@ -5406,7 +5698,7 @@ def dashboard() -> rx.Component:
                     # Bento Grid Maestro
                     rx.grid(
                         bento_profile,
-                        rx.vstack(bento_action, bento_grid, spacing="6", width="100%", height="100%"),
+                        rx.vstack(bento_action, bento_consulta, bento_grid, spacing="6", width="100%", height="100%"),
                         template_columns={"base": "1fr", "xl": "300px 1fr"},
                         gap="6", width="100%", max_width="1400px", padding_x={"base": "4", "md": "8"}, padding_y="12", z_index="1"
                     ),
@@ -5481,6 +5773,44 @@ def kpi_metric_card(title: str, value, icon_name: str, accent_color: str, icon_b
         width="100%",
     )
 
+
+def action_icon_button(icon_name: str, text: str, color_scheme: str = "blue", is_disabled: bool = False) -> rx.Component:
+    return rx.button(
+        rx.hstack(
+            rx.icon(icon_name, size=16, transition="transform 0.2s ease"),
+            rx.text(
+                text,
+                class_name="action-text",
+                font_weight="600",
+                font_size="12px",
+                white_space="nowrap",
+                opacity="0",
+                max_width="0px",
+                overflow="hidden",
+                transition="all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                margin_left="0px"
+            ),
+            spacing="0",
+            align_items="center",
+        ),
+        variant="soft",
+        size="2",
+        radius="full",
+        color_scheme=color_scheme,
+        is_disabled=is_disabled,
+        transition="all 0.2s ease",
+        _hover={
+            "transform": "translateY(-1px)",
+            "& > svg": {
+                "transform": "scale(1.1)"
+            },
+            "& .action-text": {
+                "opacity": "1",
+                "max_width": "120px",
+                "margin_left": "6px"
+            }
+        }
+    )
 
 def funcionario_dashboard() -> rx.Component:
     text_color = rx.color_mode_cond(light="#0f172a", dark="#f8fafc")
@@ -5571,22 +5901,9 @@ def funcionario_dashboard() -> rx.Component:
                                                         ),
                                                         rx.spacer(),
                                                         rx.hstack(
-                                                            rx.button(
-                                                                rx.icon("mail", size=16),
-                                                                variant="soft",
-                                                                size="2",
-                                                                radius="full",
-                                                                color_scheme="blue",
-                                                                is_disabled=True,
-                                                            ),
+                                                            action_icon_button("mail", "Contactar", color_scheme="blue", is_disabled=True),
                                                             rx.link(
-                                                                rx.button(
-                                                                    rx.icon("arrow-right", size=16),
-                                                                    variant="soft",
-                                                                    size="2",
-                                                                    radius="full",
-                                                                    color_scheme="gray",
-                                                                ),
+                                                                action_icon_button("arrow-right", "Detalles", color_scheme="gray"),
                                                                 href="/usuarios",
                                                             ),
                                                             spacing="2",
@@ -6012,9 +6329,57 @@ def funcionario_dashboard() -> rx.Component:
                                         rx.vstack(
                                             rx.text("Nuevo Estado", font_weight="semibold", font_size="sm", color=rx.color_mode_cond(light="#334155", dark="#cbd5e1")),
                                             rx.select(
-                                                ["Radicada", "En Proceso", "Cerrada"],
+                                                ["Radicada", "Asignada a Area", "En Gestion de Area", "Solucionada", "Reabierta", "Cerrada"],
                                                 value=State.nuevo_estado,
                                                 on_change=State.set_nuevo_estado,
+                                                required=True,
+                                                width="100%",
+                                                size="3",
+                                                radius="large",
+                                            ),
+                                            # Selector de área: solo visible cuando se escoge 'Asignada a Area'
+                                            rx.cond(
+                                                State.nuevo_estado == "Asignada a Area",
+                                                rx.vstack(
+                                                    rx.hstack(
+                                                        rx.icon("building-2", size=14, color="#f59e0b"),
+                                                        rx.text("Área responsable", font_weight="semibold", font_size="sm", color=rx.color_mode_cond(light="#334155", dark="#cbd5e1")),
+                                                        rx.badge("Requerido", color_scheme="orange", size="1"),
+                                                        spacing="2", align_items="center"
+                                                    ),
+                                                    rx.select(
+                                                        State.AREAS_DISPONIBLES,
+                                                        placeholder="Selecciona el área...",
+                                                        value=State.area_para_asignar,
+                                                        on_change=State.set_area_para_asignar,
+                                                        width="100%",
+                                                        size="3",
+                                                        radius="large",
+                                                        color_scheme="orange",
+                                                    ),
+                                                    spacing="1", width="100%", align_items="start",
+                                                    p="3",
+                                                    bg=rx.color_mode_cond(light="#fffbeb", dark="rgba(245,158,11,0.1)"),
+                                                    border="1px solid #f59e0b",
+                                                    border_radius="lg",
+                                                    margin_top="1"
+                                                )
+                                            ),
+                                            spacing="1",
+                                            width="100%",
+                                            align_items="start"
+                                        ),
+                                        rx.vstack(
+                                            rx.hstack(
+                                                rx.text("Justificación del cambio", font_weight="semibold", font_size="sm", color=rx.color_mode_cond(light="#334155", dark="#cbd5e1")),
+                                                rx.badge("Obligatorio", color_scheme="red", size="1"),
+                                                spacing="2",
+                                            ),
+                                            rx.text_area(
+                                                placeholder="Describe el motivo del cambio de estado y las acciones tomadas...",
+                                                value=State.respuesta_solicitud,
+                                                on_change=State.set_respuesta_solicitud,
+                                                rows="4",
                                                 required=True,
                                                 width="100%",
                                                 size="3",
@@ -6023,43 +6388,6 @@ def funcionario_dashboard() -> rx.Component:
                                             spacing="1",
                                             width="100%",
                                             align_items="start"
-                                        ),
-                                        rx.cond(
-                                            State.nuevo_estado == "Cerrada",
-                                            rx.vstack(
-                                                rx.text("Respuesta (obligatoria para cerrar)", font_weight="semibold", font_size="sm", color=rx.color_mode_cond(light="#334155", dark="#cbd5e1")),
-                                                rx.text_area(
-                                                    placeholder="Escribe la respuesta o solución a la solicitud...",
-                                                    value=State.respuesta_solicitud,
-                                                    on_change=State.set_respuesta_solicitud,
-                                                    rows="4",
-                                                    required=True,
-                                                    width="100%",
-                                                    size="3",
-                                                    radius="large",
-                                                ),
-                                                spacing="1",
-                                                width="100%",
-                                                align_items="start"
-                                            )
-                                        ),
-                                        rx.cond(
-                                            State.nuevo_estado != "Cerrada",
-                                            rx.vstack(
-                                                rx.text("Respuesta (opcional)", font_weight="semibold", font_size="sm", color=rx.color_mode_cond(light="#334155", dark="#cbd5e1")),
-                                                rx.text_area(
-                                                    placeholder="Escribe una respuesta o actualización (opcional)...",
-                                                    value=State.respuesta_solicitud,
-                                                    on_change=State.set_respuesta_solicitud,
-                                                    rows="4",
-                                                    width="100%",
-                                                    size="3",
-                                                    radius="large",
-                                                ),
-                                                spacing="1",
-                                                width="100%",
-                                                align_items="start"
-                                            )
                                         ),
                                         rx.vstack(
                                             rx.text("Documento adjunto (opcional)", font_weight="semibold", font_size="sm", color=rx.color_mode_cond(light="#334155", dark="#cbd5e1")),
@@ -6568,6 +6896,109 @@ def funcionario_cerradas_dashboard() -> rx.Component:
                     width="100%",
                     bg=rx.color_mode_cond(light="#f8fafc", dark="#0f172a"),
                     min_height="100vh",
+                ),
+                # Modal: Editor de Estado (Reabrir desde cerradas)
+                rx.cond(
+                    State.editar_estado_id,
+                    rx.box(
+                        rx.box(
+                            position="fixed", top="0", left="0", width="100vw", height="100vh",
+                            bg="rgba(0,0,0,0.5)", backdrop_filter="blur(4px)", z_index="999",
+                            on_click=State.cerrar_editor_estado
+                        ),
+                        rx.box(
+                            rx.vstack(
+                                rx.hstack(
+                                    rx.box(
+                                        rx.icon("refresh-cw", color="white", size=24),
+                                        bg="linear-gradient(135deg, #10b981 0%, #059669 100%)",
+                                        p="3", border_radius="2xl",
+                                        box_shadow="0 10px 25px -5px rgba(16,185,129,0.5)",
+                                    ),
+                                    rx.vstack(
+                                        rx.heading("Reabrir Solicitud", size="6", font_weight="900", color=rx.color_mode_cond(light="#0f172a", dark="#f8fafc")),
+                                        rx.text("Cambia el estado para reactivar este radicado.", font_size="sm", color=rx.color_mode_cond(light="#64748b", dark="#94a3b8")),
+                                        spacing="1"
+                                    ),
+                                    rx.spacer(),
+                                    rx.button(rx.icon("x", size=18), on_click=State.cerrar_editor_estado, variant="ghost", color_scheme="gray"),
+                                    spacing="4", align_items="center", width="100%", p="6",
+                                    border_bottom=rx.color_mode_cond(light="1px solid #e2e8f0", dark="1px solid #1e293b"),
+                                ),
+                                rx.vstack(
+                                    rx.text("Nuevo Estado", font_weight="semibold", font_size="sm", color=rx.color_mode_cond(light="#334155", dark="#cbd5e1")),
+                                    rx.select(
+                                        ["Reabierta", "Radicada", "Asignada a Area", "En Gestion de Area"],
+                                        value=State.nuevo_estado,
+                                        on_change=State.set_nuevo_estado,
+                                        width="100%", size="3", radius="large",
+                                    ),
+                                    rx.cond(
+                                        State.nuevo_estado == "Asignada a Area",
+                                        rx.vstack(
+                                            rx.hstack(
+                                                rx.icon("building-2", size=14, color="#f59e0b"),
+                                                rx.text("Área responsable", font_weight="semibold", font_size="sm"),
+                                                rx.badge("Requerido", color_scheme="orange", size="1"),
+                                                spacing="2", align_items="center"
+                                            ),
+                                            rx.select(
+                                                State.AREAS_DISPONIBLES,
+                                                placeholder="Selecciona el área...",
+                                                value=State.area_para_asignar,
+                                                on_change=State.set_area_para_asignar,
+                                                width="100%", size="3", radius="large", color_scheme="orange",
+                                            ),
+                                            spacing="1", width="100%", p="3",
+                                            bg=rx.color_mode_cond(light="#fffbeb", dark="rgba(245,158,11,0.1)"),
+                                            border="1px solid #f59e0b", border_radius="lg", margin_top="1"
+                                        )
+                                    ),
+                                    rx.text("Justificación", font_weight="semibold", font_size="sm", color=rx.color_mode_cond(light="#334155", dark="#cbd5e1")),
+                                    rx.text_area(
+                                        placeholder="Explica por qué se reabre esta solicitud...",
+                                        value=State.respuesta_solicitud,
+                                        on_change=State.set_respuesta_solicitud,
+                                        rows="3", width="100%", size="3", radius="large",
+                                    ),
+                                    rx.cond(
+                                        State.mensaje_actualizar_estado,
+                                        rx.text(
+                                            State.mensaje_actualizar_estado,
+                                            color=rx.cond(State.mensaje_actualizar_estado.contains("correctamente"), "green.700", "red.700"),
+                                            font_size="sm", font_weight="medium"
+                                        )
+                                    ),
+                                    spacing="3", width="100%", p="6"
+                                ),
+                                rx.hstack(
+                                    rx.button("Cancelar", on_click=State.cerrar_editor_estado, variant="ghost", color_scheme="gray", size="3", flex="1"),
+                                    rx.button(
+                                        rx.icon("refresh-cw", size=16), "Reabrir Solicitud",
+                                        on_click=State.actualizar_estado_solicitud(rx.upload_files(upload_id="upload_respuesta_cerradas")),
+                                        bg="linear-gradient(135deg, #10b981 0%, #059669 100%)",
+                                        color="white", size="3", flex="2",
+                                        box_shadow="0 4px 14px 0 rgba(16,185,129,0.39)",
+                                        _hover={"transform": "translateY(-2px)"},
+                                        transition="all 0.2s"
+                                    ),
+                                    spacing="4", width="100%", p="5",
+                                    border_top=rx.color_mode_cond(light="1px solid #e2e8f0", dark="1px solid #1e293b"),
+                                ),
+                                spacing="0",
+                            ),
+                            p="0",
+                            border=rx.color_mode_cond(light="1px solid rgba(255,255,255,0.6)", dark="1px solid rgba(255,255,255,0.08)"),
+                            border_radius="3xl",
+                            bg=rx.color_mode_cond(light="rgba(255,255,255,0.95)", dark="rgba(15,23,42,0.95)"),
+                            backdrop_filter="blur(20px)",
+                            width="100%", max_width="500px",
+                            position="fixed", top="50%", left="50%",
+                            transform="translate(-50%, -50%)",
+                            z_index="1000",
+                            box_shadow="0 25px 50px -12px rgba(0,0,0,0.35)",
+                        )
+                    )
                 ),
             ),
             rx.box(
@@ -7083,35 +7514,114 @@ RED_ERR   = "#ef4444"
 VIOLET    = "#8b5cf6"
  
 def consultar_estado_page() -> rx.Component:
+    text_color = rx.color_mode_cond(light="#0f172a", dark="#f8fafc")
+    subtext_color = rx.color_mode_cond(light="#64748b", dark="#94a3b8")
+    card_bg = rx.color_mode_cond(light="rgba(255, 255, 255, 0.85)", dark="rgba(30, 41, 59, 0.7)")
+    card_border = rx.color_mode_cond(light="1px solid rgba(255, 255, 255, 0.9)", dark="1px solid rgba(51, 65, 85, 0.5)")
+
+    def estado_badge(estado: str) -> rx.Component:
+        return rx.badge(
+            estado,
+            color_scheme=rx.match(
+                estado,
+                ("Radicada", "orange"),
+                ("Asignada a Area", "blue"),
+                ("En Gestion de Area", "purple"),
+                ("Solucionada", "teal"),
+                ("Reabierta", "yellow"),
+                ("Cerrada", "green"),
+                "gray"
+            ),
+            size="2",
+            radius="full",
+            variant="surface",
+        )
+
+    def timeline_step(title: str, is_active: bool, icon_name: str) -> rx.Component:
+        color = rx.cond(is_active, "#2563eb", rx.color_mode_cond(light="#cbd5e1", dark="#475569"))
+        bg_color = rx.cond(is_active, "rgba(37,99,235,0.1)", rx.color_mode_cond(light="#f8fafc", dark="rgba(15,23,42,0.4)"))
+        border_color = rx.cond(is_active, "#2563eb", rx.color_mode_cond(light="#e2e8f0", dark="#334155"))
+        return rx.vstack(
+            rx.box(
+                rx.icon(icon_name, size=16, color=color),
+                bg=bg_color,
+                border=f"2px solid {border_color}",
+                border_radius="full",
+                width="36px", height="36px",
+                display="flex", align_items="center", justify_content="center",
+                box_shadow=rx.cond(is_active, "0 4px 10px rgba(37,99,235,0.2)", "none"),
+            ),
+            rx.text(title, font_size="12px", font_weight="bold", color=rx.cond(is_active, text_color, subtext_color)),
+            spacing="1",
+            align_items="center"
+        )
+
+    def timeline_connector(is_active: bool) -> rx.Component:
+        color = rx.cond(is_active, "#2563eb", rx.color_mode_cond(light="#cbd5e1", dark="#475569"))
+        return rx.box(
+            height="2px",
+            flex="1",
+            bg=color,
+            margin_bottom="18px",
+        )
+
     return rx.box(
         navbar(),
         rx.center(
-            rx.card(
+            rx.box(
                 rx.vstack(
-                    rx.heading("Consultar Estado de Solicitud", size="4", color=rx.color_mode_cond(light="black", dark="white")),
-                    rx.text("Ingresa el número de radicado de tu solicitud para consultar su estado actual.", color=rx.color_mode_cond(light="gray.600", dark="gray.400")),
+                    # Header de la tarjeta con botón cerrar
+                    rx.hstack(
+                        rx.vstack(
+                            rx.heading("Consultar Estado de Solicitud", size="6", color=text_color, font_weight="bold"),
+                            rx.text("Rastrea tu Petición, Queja, Reclamo o Sugerencia.", color=subtext_color, font_size="sm"),
+                            align_items="start", spacing="1"
+                        ),
+                        rx.spacer(),
+                        rx.icon_button(
+                            "x",
+                            variant="soft",
+                            color_scheme="gray",
+                            radius="full",
+                            size="3",
+                            on_click=State.cerrar_consulta,
+                            cursor="pointer",
+                        ),
+                        width="100%",
+                        align_items="center",
+                        padding_bottom="4",
+                        border_bottom=rx.color_mode_cond(light="1px solid #e2e8f0", dark="1px solid #334155")
+                    ),
                     
                     # Formulario de consulta
-                    rx.vstack(
-                        rx.text("Número de Radicado", font_weight="semibold", color=rx.color_mode_cond(light="black", dark="white")),
-                        rx.input(
-                            placeholder="Ej: PQRS-2024-abc12345",
-                            value=State.consulta_radicado,
-                            on_change=State.set_consulta_radicado,
-                            bg=rx.color_mode_cond(light="white", dark="#2d3748"),
-                            border=f"1px solid {rx.color_mode_cond(light='#cbd5e1', dark='#4a5568')}",
-                            border_radius="md",
-                            color=rx.color_mode_cond(light="black", dark="white"),
-                            _placeholder={"color": rx.color_mode_cond(light="#718096", dark="#a0aec0")}
+                    rx.box(
+                        rx.text("Número de Radicado", font_weight="semibold", font_size="sm", color=text_color, margin_bottom="2"),
+                        rx.hstack(
+                            rx.input(
+                                placeholder="Ej: PQRS-2024-abc12345",
+                                value=State.consulta_radicado,
+                                on_change=State.set_consulta_radicado,
+                                bg=rx.color_mode_cond(light="white", dark="#0f172a"),
+                                border=rx.color_mode_cond(light="1px solid #cbd5e1", dark="1px solid #334155"),
+                                radius="large",
+                                size="3",
+                                width="100%",
+                                box_shadow="inset 0 1px 2px rgba(0,0,0,0.05)"
+                            ),
+                            rx.button(
+                                "Buscar",
+                                icon="search",
+                                on_click=State.consultar_estado_solicitud,
+                                color_scheme="blue",
+                                size="3",
+                                radius="large",
+                                box_shadow="0 4px 6px -1px rgba(59, 130, 246, 0.3)"
+                            ),
+                            width="100%",
+                            spacing="3"
                         ),
-                        rx.button(
-                            "Consultar Estado",
-                            on_click=State.consultar_estado_solicitud,
-                            color_scheme="blue",
-                            width="100%"
-                        ),
-                        spacing="3",
-                        width="100%"
+                        width="100%",
+                        margin_y="4"
                     ),
                     
                     # Mensaje de resultado
@@ -7122,176 +7632,392 @@ def consultar_estado_page() -> rx.Component:
                                 State.consulta_mensaje,
                                 color=rx.cond(
                                     State.consulta_mensaje.contains("encontrada") & ~State.consulta_mensaje.contains("No se encontró"),
-                                    "green.500",
-                                    "red.500"
+                                    "green.700",
+                                    "red.700"
                                 ),
-                                font_weight="semibold"
+                                font_weight="medium",
+                                font_size="sm"
                             ),
                             p="3",
                             border_radius="lg",
-                            bg=rx.color_mode_cond(light="#f8fafc", dark="rgba(30,41,59,0.45)"),
-                            animation="flashMessage 5s ease forwards",
-                            style={
-                                "@keyframes flashMessage": {
-                                    "0%": {"opacity": "0", "transform": "translateY(-4px)"},
-                                    "10%": {"opacity": "1", "transform": "translateY(0px)"},
-                                    "80%": {"opacity": "1", "transform": "translateY(0px)"},
-                                    "100%": {"opacity": "0", "transform": "translateY(-4px)"},
-                                }
-                            },
+                            border=rx.cond(
+                                State.consulta_mensaje.contains("encontrada") & ~State.consulta_mensaje.contains("No se encontró"),
+                                "1px solid #bbf7d0", "1px solid #fecaca"
+                            ),
+                            bg=rx.cond(
+                                State.consulta_mensaje.contains("encontrada") & ~State.consulta_mensaje.contains("No se encontró"),
+                                rx.color_mode_cond(light="#f0fdf4", dark="rgba(22,163,74,0.1)"),
+                                rx.color_mode_cond(light="#fef2f2", dark="rgba(239,68,68,0.1)")
+                            ),
+                            width="100%",
+                            margin_bottom="4"
                         )
                     ),
                     
-                    # Mostrar detalles de la solicitud si se encontró
+                    # Detalles de la solicitud
                     rx.cond(
                         State.solicitud_consultada,
                         rx.box(
                             rx.vstack(
-                                rx.heading("Detalles de la Solicitud", size="6", color=rx.color_mode_cond(light="black", dark="white")),
-                                rx.grid(
-                                    rx.vstack(
-                                        rx.text("Número de Radicado:", font_weight="semibold", color=rx.color_mode_cond(light="black", dark="white"), font_size="sm"),
-                                        rx.text(State.solicitud_consultada.get("radicado", ""), color=rx.color_mode_cond(light="gray.700", dark="gray.300"), font_size="sm")
+                                # Cabecera de Radicado Premium
+                                rx.hstack(
+                                    rx.hstack(
+                                        rx.box(
+                                            rx.icon("file-text", size=18, color="#2563eb"),
+                                            bg=rx.color_mode_cond(light="#eff6ff", dark="rgba(37,99,235,0.1)"),
+                                            border_radius="lg",
+                                            width="36px", height="36px",
+                                            display="flex", align_items="center", justify_content="center",
+                                        ),
+                                        rx.vstack(
+                                            rx.text("Detalle de la Solicitud", font_weight="bold", font_size="md", color=text_color),
+                                            rx.text(State.solicitud_consultada.get("radicado", ""), font_family="monospace", font_size="sm", color="#2563eb", font_weight="bold"),
+                                            spacing="0", align_items="start"
+                                        ),
+                                        spacing="3", align_items="center"
                                     ),
-                                    rx.vstack(
-                                        rx.text("Tipo de Solicitud:", font_weight="semibold", color=rx.color_mode_cond(light="black", dark="white"), font_size="sm"),
-                                        rx.text(State.solicitud_consultada.get("tipo_solicitud", ""), color=rx.color_mode_cond(light="gray.700", dark="gray.300"), font_size="sm")
+                                    rx.spacer(),
+                                    estado_badge(State.solicitud_consultada.get("estado", "")),
+                                    width="100%", align_items="center", padding_bottom="3",
+                                    border_bottom=rx.color_mode_cond(light="1px solid #e2e8f0", dark="1px solid #334155")
+                                ),
+                                
+                                # Timeline de Estados Premium
+                                rx.box(
+                                    rx.hstack(
+                                        timeline_step("Radicada", True, "file-text"),
+                                        timeline_connector(State.solicitud_consultada.get("estado") != "Radicada"),
+                                        timeline_step(
+                                            "En Trámite",
+                                            State.solicitud_consultada.get("estado") != "Radicada",
+                                            "activity"
+                                        ),
+                                        timeline_connector(
+                                            (State.solicitud_consultada.get("estado") == "Solucionada") |
+                                            (State.solicitud_consultada.get("estado") == "Cerrada")
+                                        ),
+                                        timeline_step(
+                                            "Solucionada",
+                                            (State.solicitud_consultada.get("estado") == "Solucionada") |
+                                            (State.solicitud_consultada.get("estado") == "Cerrada"),
+                                            "circle-check"
+                                        ),
+                                        timeline_connector(State.solicitud_consultada.get("estado") == "Cerrada"),
+                                        timeline_step(
+                                            "Cerrada",
+                                            State.solicitud_consultada.get("estado") == "Cerrada",
+                                            "archive"
+                                        ),
+                                        spacing="0", align_items="center", width="100%"
                                     ),
-                                    rx.vstack(
-                                        rx.text("Estado Actual:", font_weight="semibold", color=rx.color_mode_cond(light="black", dark="white"), font_size="sm"),
-                                        rx.badge(
-                                            State.solicitud_consultada.get("estado", ""),
-                                            color_scheme=rx.cond(
-                                                State.solicitud_consultada.get("estado") == "Radicada",
-                                                "blue",
-                                                rx.cond(
-                                                    State.solicitud_consultada.get("estado") == "Actualizada",
-                                                    "yellow",
-                                                    rx.cond(
-                                                        State.solicitud_consultada.get("estado") == "Cerrada",
-                                                        "green",
-                                                        "gray"
-                                                    )
-                                                )
-                                            )
-                                        )
-                                    ),
-                                    rx.vstack(
-                                        rx.text("Fecha de Creación:", font_weight="semibold", color=rx.color_mode_cond(light="black", dark="white"), font_size="sm"),
-                                        rx.text(State.solicitud_consultada.get("fecha", ""), color=rx.color_mode_cond(light="gray.700", dark="gray.300"), font_size="sm")
-                                    ),
-                                    rx.vstack(
-                                        rx.text("Asunto:", font_weight="semibold", color=rx.color_mode_cond(light="black", dark="white"), font_size="sm"),
-                                        rx.text(State.solicitud_consultada.get("asunto", ""), color=rx.color_mode_cond(light="gray.700", dark="gray.300"), font_size="sm")
-                                    ),
-                                    rx.vstack(
-                                        rx.text("Área Responsable:", font_weight="semibold", color=rx.color_mode_cond(light="black", dark="white"), font_size="sm"),
-                                        rx.text(State.solicitud_consultada.get("area_responsable", ""), color=rx.color_mode_cond(light="gray.700", dark="gray.300"), font_size="sm")
-                                    ),
-                                    template_columns="repeat(2, 1fr)",
-                                    gap="4",
+                                    padding_y="4",
                                     width="100%"
+                                ),
+                                
+                                # Datos de la Solicitud
+                                rx.grid(
+                                    rx.box(
+                                        rx.text("Tipo de Solicitud", font_size="xs", color=subtext_color, text_transform="uppercase", font_weight="bold"),
+                                        rx.text(State.solicitud_consultada.get("tipo_solicitud", ""), font_size="sm", color=text_color, font_weight="medium", margin_top="1")
+                                    ),
+                                    rx.box(
+                                        rx.text("Área Responsable", font_size="xs", color=subtext_color, text_transform="uppercase", font_weight="bold"),
+                                        rx.text(State.solicitud_consultada.get("area_responsable", "Por asignar"), font_size="sm", color=text_color, font_weight="medium", margin_top="1")
+                                    ),
+                                    rx.box(
+                                        rx.text("Fecha de Registro", font_size="xs", color=subtext_color, text_transform="uppercase", font_weight="bold"),
+                                        rx.text(State.solicitud_consultada.get("fecha", ""), font_size="sm", color=text_color, margin_top="1")
+                                    ),
+                                    rx.box(
+                                        rx.text("Asunto", font_size="xs", color=subtext_color, text_transform="uppercase", font_weight="bold"),
+                                        rx.text(State.solicitud_consultada.get("asunto", ""), font_size="sm", color=text_color, font_weight="medium", margin_top="1")
+                                    ),
+                                    template_columns={"base": "repeat(1, 1fr)", "sm": "repeat(2, 1fr)"},
+                                    gap="4",
+                                    width="100%",
+                                    bg=rx.color_mode_cond(light="#f8fafc", dark="#0f172a"),
+                                    p="4",
+                                    border_radius="xl",
+                                    border=rx.color_mode_cond(light="1px solid #e2e8f0", dark="1px solid #1e293b")
                                 ),
                                 
                                 # Descripción
                                 rx.cond(
-                                    State.solicitud_consultada.get("descripcion"),
+                                    State.solicitud_consultada.get("descripcion") != "",
                                     rx.vstack(
-                                        rx.text("Descripción:", font_weight="semibold", color=rx.color_mode_cond(light="black", dark="white"), font_size="sm"),
+                                        rx.text("Descripción de la Solicitud", font_weight="semibold", font_size="xs", color=subtext_color, text_transform="uppercase"),
                                         rx.box(
-                                            rx.text(State.solicitud_consultada.get("descripcion", ""), color=rx.color_mode_cond(light="gray.700", dark="gray.300"), font_size="sm"),
-                                            p="3",
-                                            border=f"1px solid {rx.color_mode_cond(light='#e2e8f0', dark='#4a5568')}",
-                                            border_radius="md",
-                                            bg=rx.color_mode_cond(light="#f7fafc", dark="#2d3748"),
+                                            rx.text(State.solicitud_consultada.get("descripcion", ""), font_size="sm", color=text_color, line_height="1.6"),
+                                            bg=rx.color_mode_cond(light="#f8fafc", dark="#0f172a"),
+                                            border=rx.color_mode_cond(light="1px solid #e2e8f0", dark="1px solid #1e293b"),
+                                            border_radius="xl",
+                                            p="4",
                                             width="100%"
                                         ),
-                                        spacing="2",
-                                        width="100%"
+                                        spacing="1", width="100%", align_items="start", margin_top="2"
                                     )
                                 ),
                                 
-                                # Respuesta del funcionario (si existe)
+                                # Respuesta del Funcionario
                                 rx.cond(
-                                    State.solicitud_consultada.get("respuesta"),
+                                    State.solicitud_consultada.get("respuesta") != "",
                                     rx.vstack(
-                                        rx.text("Respuesta del Funcionario:", font_weight="semibold", color=rx.color_mode_cond(light="black", dark="white"), font_size="sm"),
+                                        rx.hstack(
+                                            rx.icon("message-circle", size=14, color="#10b981"),
+                                            rx.text("Respuesta del Funcionario", font_weight="bold", font_size="xs", color="#10b981", text_transform="uppercase"),
+                                            spacing="2", align_items="center"
+                                        ),
                                         rx.box(
-                                            rx.text(State.solicitud_consultada.get("respuesta", ""), color=rx.color_mode_cond(light="gray.700", dark="gray.300"), font_size="sm"),
-                                            p="3",
-                                            border="2px solid #48bb78",
-                                            border_radius="md",
-                                            bg=rx.color_mode_cond(light="#f0fff4", dark="#2f4f2f"),
+                                            rx.text(State.solicitud_consultada.get("respuesta", ""), font_size="sm", color=text_color, line_height="1.6"),
+                                            bg=rx.color_mode_cond(light="#ecfdf5", dark="rgba(16,185,129,0.1)"),
+                                            border="1px solid #a7f3d0",
+                                            border_left="4px solid #10b981",
+                                            border_radius="xl",
+                                            p="4",
                                             width="100%"
                                         ),
-                                        spacing="2",
-                                        width="100%"
+                                        spacing="2", width="100%", align_items="start", margin_top="4"
                                     )
                                 ),
                                 
-                                # Documento adjunto (si existe)
+                                # Adjuntos
                                 rx.cond(
                                     State.solicitud_consultada.get("documento_adjuntos"),
                                     rx.vstack(
-                                        rx.text("Documentos adjuntos:", font_weight="semibold", color=rx.color_mode_cond(light="black", dark="white"), font_size="sm"),
-                                        rx.foreach(
-                                            State.solicitud_consultada_adjuntos,
-                                            lambda doc: rx.link(
-                                                doc["basename"],
-                                                href=doc["href"],
-                                                color="blue.500",
-                                                target="_blank",
-                                                font_size="sm"
-                                            )
+                                        rx.hstack(
+                                            rx.icon("paperclip", size=14, color="#3b82f6"),
+                                            rx.text("Documentos Adjuntos", font_weight="semibold", font_size="xs", color=subtext_color, text_transform="uppercase"),
+                                            spacing="2", align_items="center"
                                         ),
-                                        spacing="2"
-                                    )
-                                ),
-                                rx.cond(
-                                    State.solicitud_consultada.get("respuesta_documento_basename"),
-                                    rx.vstack(
-                                        rx.text("Documento adjunto en la respuesta:", font_weight="semibold", color=rx.color_mode_cond(light="black", dark="white"), font_size="sm"),
-                                        rx.cond(
-                                            State.solicitud_consultada.get("respuesta_documento_href"),
-                                            rx.link(
-                                                State.solicitud_consultada.get("respuesta_documento_basename", "Ver documento"),
-                                                href=State.solicitud_consultada["respuesta_documento_href"],
-                                                color="blue.500",
-                                                target="_blank",
-                                                font_size="sm"
+                                        rx.vstack(
+                                            rx.foreach(
+                                                State.solicitud_consultada_adjuntos,
+                                                lambda doc: rx.hstack(
+                                                    rx.icon("file-text", size=14, color="#3b82f6"),
+                                                    rx.link(
+                                                        doc["basename"],
+                                                        href=doc["href"],
+                                                        color="#3b82f6",
+                                                        font_size="sm",
+                                                        font_weight="medium",
+                                                        target="_blank",
+                                                        text_decoration="none",
+                                                        _hover={"text_decoration": "underline"},
+                                                    ),
+                                                    spacing="2", align_items="center",
+                                                    p="2",
+                                                    bg=rx.color_mode_cond(light="#eff6ff", dark="rgba(59,130,246,0.1)"),
+                                                    border="1px solid #bfdbfe",
+                                                    border_radius="lg",
+                                                    width="100%"
+                                                )
                                             ),
-                                            rx.text("Documento no disponible", color="gray.500", font_size="sm")
+                                            spacing="2", width="100%"
                                         ),
-                                        spacing="2"
+                                        spacing="2", width="100%", align_items="start", margin_top="4"
                                     )
                                 ),
                                 
-                                spacing="4",
+                                # Calificación Obligatoria para HU11
+                                rx.cond(
+                                    State.solicitud_consultada.get("estado") == "Solucionada",
+                                    rx.box(
+                                        rx.vstack(
+                                            rx.hstack(
+                                                rx.icon("star", color="#10b981", size=24),
+                                                rx.heading("¡Solicitud Solucionada!", size="5", color="#10b981"),
+                                                align_items="center", spacing="2"
+                                            ),
+                                            rx.text("Por favor, califica nuestro servicio para cerrar definitivamente el caso.", font_size="sm", color=text_color),
+                                            rx.text("Nota: Si no calificas en 5 días hábiles, se cerrará automáticamente con 5 estrellas.", font_size="xs", color=subtext_color),
+                                            
+                                            rx.hstack(
+                                                rx.select(
+                                                    ["5 - Excelente", "4 - Muy Bueno", "3 - Bueno", "2 - Regular", "1 - Malo"],
+                                                    placeholder="Selecciona una calificación",
+                                                    on_change=State.calificar_solicitud,
+                                                    size="3", radius="large", width="100%"
+                                                ),
+                                                width="100%", margin_top="2"
+                                            ),
+                                            rx.cond(
+                                                State.calificacion_mensaje,
+                                                rx.text(State.calificacion_mensaje, color="blue.500", font_size="sm", font_weight="medium", margin_top="2")
+                                            ),
+                                            align_items="start",
+                                            spacing="2",
+                                            width="100%"
+                                        ),
+                                        p="5",
+                                        border="1px solid #6ee7b7",
+                                        bg=rx.color_mode_cond(light="#ecfdf5", dark="rgba(16,185,129,0.1)"),
+                                        border_radius="xl",
+                                        width="100%",
+                                        margin_y="6",
+                                        box_shadow="0 4px 6px -1px rgba(16, 185, 129, 0.1)"
+                                    )
+                                ),
+
+                                # Bitácora HU11 - Estilo KPI Cards
+                                rx.box(
+                                    rx.vstack(
+                                        # Encabezado de la sección
+                                        rx.hstack(
+                                            rx.box(
+                                                rx.icon("git-commit-horizontal", size=18, color="#8b5cf6"),
+                                                bg=rx.color_mode_cond(light="#f5f3ff", dark="rgba(139,92,246,0.18)"),
+                                                border_radius="10px", width="38px", height="38px",
+                                                display="flex", align_items="center", justify_content="center",
+                                                flex_shrink="0",
+                                            ),
+                                            rx.vstack(
+                                                rx.text("Bitácora", font_size="2rem", font_weight="800", color=text_color, line_height="1", letter_spacing="-0.03em"),
+                                                rx.text("Historial dinámico de seguimiento", font_size="12px", color=subtext_color, font_weight="500"),
+                                                spacing="1", align_items="start"
+                                            ),
+                                            spacing="3", align_items="center", width="100%"
+                                        ),
+                                        rx.divider(margin_y="4", opacity="0.4"),
+                                        # Entradas del historial como cards
+                                        rx.cond(
+                                            State.historial_solicitud.length() > 0,
+                                            rx.vstack(
+                                                rx.foreach(
+                                                    State.historial_solicitud,
+                                                    lambda h: rx.box(
+                                                        rx.vstack(
+                                                            # Encabezado de la card de historial
+                                                            rx.hstack(
+                                                                rx.box(
+                                                                    rx.icon("circle-dot", size=14, color="#8b5cf6"),
+                                                                    bg=rx.color_mode_cond(light="#f5f3ff", dark="rgba(139,92,246,0.18)"),
+                                                                    border_radius="8px", width="28px", height="28px",
+                                                                    display="flex", align_items="center", justify_content="center",
+                                                                    flex_shrink="0",
+                                                                ),
+                                                                rx.badge(h["estado_nuevo"], color_scheme="purple", variant="soft", size="2", radius="full"),
+                                                                rx.spacer(),
+                                                                rx.hstack(
+                                                                    rx.icon("calendar", size=12, color=subtext_color),
+                                                                    rx.text(h["fecha_cambio"], font_size="xs", color=subtext_color, font_weight="medium"),
+                                                                    spacing="1", align_items="center"
+                                                                ),
+                                                                width="100%", align_items="center", spacing="2"
+                                                            ),
+                                                            # Observaciones
+                                                            rx.box(
+                                                                rx.text(h["observaciones"], font_size="sm", color=text_color, white_space="pre-wrap", line_height="1.6"),
+                                                                p="3",
+                                                                bg=rx.color_mode_cond(light="#f8fafc", dark="rgba(15,23,42,0.6)"),
+                                                                border=rx.color_mode_cond(light="1px solid #e2e8f0", dark="1px solid #1e293b"),
+                                                                border_radius="lg", width="100%", margin_top="2"
+                                                            ),
+                                                            # Adjunto (si existe)
+                                                            rx.cond(
+                                                                h["documento_adjunto"] != "",
+                                                                rx.link(
+                                                                    rx.hstack(
+                                                                        rx.box(
+                                                                            rx.icon("paperclip", size=14, color="#3b82f6"),
+                                                                            bg=rx.color_mode_cond(light="#eff6ff", dark="rgba(59,130,246,0.18)"),
+                                                                            border_radius="6px", width="24px", height="24px",
+                                                                            display="flex", align_items="center", justify_content="center"
+                                                                        ),
+                                                                        rx.text(h["documento_adjunto"], font_size="xs", font_weight="600", color="#3b82f6"),
+                                                                        rx.icon("external-link", size=12, color="#3b82f6"),
+                                                                        spacing="2", align_items="center"
+                                                                    ),
+                                                                    href=f"/assets/uploads/{h['documento_adjunto']}",
+                                                                    target="_blank",
+                                                                    margin_top="2",
+                                                                    display="inline-flex",
+                                                                    p="2",
+                                                                    bg=rx.color_mode_cond(light="#eff6ff", dark="rgba(59,130,246,0.1)"),
+                                                                    border="1px solid #bfdbfe",
+                                                                    border_radius="lg",
+                                                                    _hover={"bg": rx.color_mode_cond(light="#dbeafe", dark="rgba(59,130,246,0.2)"), "transform": "translateY(-1px)"},
+                                                                    transition="all 0.2s ease"
+                                                                )
+                                                            ),
+                                                            spacing="1", align_items="start", width="100%"
+                                                        ),
+                                                        bg=rx.color_mode_cond(light="#ffffff", dark="#0f1e35"),
+                                                        border=rx.color_mode_cond(light="1px solid #e2e8f0", dark="1px solid #1e3a5f"),
+                                                        border_top="3px solid #8b5cf6",
+                                                        border_radius="14px",
+                                                        padding="18px 20px",
+                                                        box_shadow=rx.color_mode_cond(light="0 1px 3px rgba(0,0,0,0.05)", dark="0 2px 12px rgba(0,0,0,0.3)"),
+                                                        transition="transform 0.18s ease, box-shadow 0.18s ease",
+                                                        _hover={"transform": "translateY(-3px)", "box_shadow": "0 8px 24px rgba(139,92,246,0.18)"},
+                                                        width="100%"
+                                                    )
+                                                ),
+                                                spacing="4", width="100%"
+                                            ),
+                                            rx.box(
+                                                rx.vstack(
+                                                    rx.icon("clock", size=32, color=subtext_color, opacity="0.4"),
+                                                    rx.text("No hay historial disponible aún.", font_size="sm", color=subtext_color, text_align="center"),
+                                                    spacing="2", align_items="center"
+                                                ),
+                                                width="100%", p="8",
+                                                border="1px dashed #cbd5e1", border_radius="xl",
+                                                bg=rx.color_mode_cond(light="#f8fafc", dark="rgba(15,23,42,0.4)"),
+                                                display="flex", justify_content="center"
+                                            )
+                                        ),
+                                        spacing="4", width="100%", align_items="start"
+                                    ),
+                                    bg=rx.color_mode_cond(light="#ffffff", dark="#0f1e35"),
+                                    border=rx.color_mode_cond(light="1px solid #e2e8f0", dark="1px solid #1e3a5f"),
+                                    border_top="3px solid #8b5cf6",
+                                    border_radius="14px",
+                                    padding="20px",
+                                    box_shadow=rx.color_mode_cond(light="0 1px 3px rgba(0,0,0,0.05)", dark="0 2px 12px rgba(0,0,0,0.3)"),
+                                    margin_top="8",
+                                    width="100%"
+                                ),
+
+                            spacing="0",
                                 align_items="start",
                                 width="100%"
                             ),
-                            p="6",
-                            border=f"1px solid {rx.color_mode_cond(light='#e2e8f0', dark='#4a5568')}",
-                            border_radius="lg",
-                            bg=rx.color_mode_cond(light="white", dark="#1a202c"),
                             width="100%",
-                            margin_top="4"
+                            margin_top="2",
+                            animation="fadeIn 0.5s ease-out"
                         )
                     ),
                     
-                    spacing="6",
-                    align_items="center",
+                    spacing="0",
+                    align_items="start",
                     width="100%"
                 ),
-                bg=rx.color_mode_cond(light="white", dark="#1a202c"),
-                max_width="800px",
-                p="8",
-                box_shadow="2xl",
-                border_radius="2xl"
+                bg=card_bg,
+                backdrop_filter="blur(16px)",
+                border=card_border,
+                border_radius="3xl",
+                box_shadow="0 25px 50px -12px rgba(0, 0, 0, 0.15)",
+                width="100%",
+                max_width="750px",
+                p={"base": "6", "md": "8"},
+                margin_y="10",
+                style={
+                    "@keyframes fadeIn": {
+                        "from": {"opacity": "0", "transform": "translateY(10px)"},
+                        "to": {"opacity": "1", "transform": "translateY(0)"}
+                    }
+                }
             ),
-            size="3"
+            size="3",
+            width="100%",
+            padding_x="4"
         ),
-        bg=rx.color_mode_cond(light="#f8fafc", dark="#0f172a")
+        bg=rx.color_mode_cond(
+            light="linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)", 
+            dark="linear-gradient(135deg, #0f172a 0%, #020617 100%)"
+        ),
+        min_height="100vh",
+        width="100%"
     )
 
 
@@ -7399,7 +8125,6 @@ def reportes_page() -> rx.Component:
                     ),
                     width="100%",
                     align_items="end",
-                    flex_wrap="wrap"
                 ),
                 
                 # Fila de KPIs (Top Row)
@@ -7439,178 +8164,282 @@ def reportes_page() -> rx.Component:
                     style={"gridTemplateColumns": "repeat(auto-fit, minmax(200px, 1fr))"},
                 ),
 
-                # Contenedor de Gráficas (Grid 2 Columnas)
-                rx.grid(
-                    # 1. Cumplimiento (Dona)
-                    chart_card(
-                        "Nivel de Cumplimiento",
-                        rc.pie_chart(
-                            rc.tooltip(),
-                            rc.legend(layout="horizontal", vertical_align="bottom", align="center"),
-                            rc.pie(
-                                rc.cell(fill="#10b981"),
-                                rc.cell(fill="#ef4444"),
-                                data=State.compliance_chart_data,
-                                data_key="value",
-                                name_key="name",
-                                cx="50%",
-                                cy="50%",
-                                outer_radius=100,
-                                inner_radius=65,
-                                label=True,
-                            ),
-                            width="100%",
-                            height=300,
-                        ),
-                        extra_content=rx.center(
-                            rx.hstack(
-                                rx.text(State.compliance_percentage, font_size="4xl", font_weight="bold", color="#10b981"),
-                                rx.text("%", font_size="xl", font_weight="bold", color="#10b981"),
-                            ),
-                            margin_top="-150px",
-                            margin_bottom="110px",
-                            pointer_events="none"
-                        )
-                    ),
-
-                    # 2. Tipos de Solicitud (Barras)
-                    chart_card(
-                        "Volumen por Tipo",
-                        rc.bar_chart(
-                            rc.x_axis(data_key="name"),
-                            rc.y_axis(domain=[0, State.max_registros_tipo]),
-                            rc.tooltip(),
-                            rc.bar(data_key="cantidad", fill="#3b82f6", radius=[6, 6, 0, 0]),
-                            data=State.data_grafica_tipo,
-                            width="100%",
-                            height=300,
-                        )
-                    ),
-
-                    # 3. Tiempos de Respuesta (Línea)
-                    chart_card(
-                        "Tiempos Promedio de Respuesta",
-                        rc.line_chart(
-                            rc.x_axis(data_key="month"),
-                            rc.y_axis(),
-                            rc.tooltip(),
-                            rc.line(type="monotone", data_key="dias", stroke="#8b5cf6", stroke_width=4, dot={"r": 5, "fill": "#8b5cf6", "stroke": "#ffffff", "strokeWidth": 2}),
-                            data=State.monthly_response_times,
-                            width="100%",
-                            height=300,
-                        ),
-                        extra_content=rx.box(),
-                    ),
-
-                    # 4. Solicitudes por vencer (Barras semáforo)
-                    chart_card(
-                        "Estado de Vencimiento",
-                        rx.box(
-                            # Gráfico principal
-                            rc.bar_chart(
-                                rc.x_axis(data_key="name"),
-                                rc.y_axis(),
-                                rc.tooltip(),
-                                rc.bar(
-                                    rc.cell(fill="#ef4444"),
-                                    rc.cell(fill="#f59e0b"),
-                                    rc.cell(fill="#f59e0b"),
-                                    rc.cell(fill="#10b981"),
-                                    data_key="cantidad",
-                                    radius=[6, 6, 0, 0]
-                                ),
-                                data=State.solicitudes_por_vencer_data,
-                                width="100%",
-                                height=300,
-                            ),
-                            # Capa superpuesta con botones invisibles sobre cada barra para capturar clicks
-                            rx.hstack(
-                                rx.box(width="25%", height="100%", cursor="pointer", on_click=lambda: State.abrir_vencimiento_modal("Vencidas")),
-                                rx.box(width="25%", height="100%", cursor="pointer", on_click=lambda: State.abrir_vencimiento_modal("1-5 días")),
-                                rx.box(width="25%", height="100%", cursor="pointer", on_click=lambda: State.abrir_vencimiento_modal("6-10 días")),
-                                rx.box(width="25%", height="100%", cursor="pointer", on_click=lambda: State.abrir_vencimiento_modal(">10 días")),
-                                position="absolute",
-                                top="0",
-                                left="10%",  # offset for y-axis
-                                width="90%",
-                                height="85%", # offset for x-axis
-                                z_index="10",
-                                opacity="0"
-                            ),
-                            position="relative",
-                            width="100%"
-                        ),
-                        extra_content=rx.center(
-                            rx.hstack(
-                                rx.button("Vencidas", size="1", variant="soft", color_scheme="red", radius="full", on_click=lambda: State.abrir_vencimiento_modal("Vencidas")),
-                                rx.button("1-5 días", size="1", variant="soft", color_scheme="orange", radius="full", on_click=lambda: State.abrir_vencimiento_modal("1-5 días")),
-                                rx.button("6-10 días", size="1", variant="soft", color_scheme="yellow", radius="full", on_click=lambda: State.abrir_vencimiento_modal("6-10 días")),
-                                rx.button(">10 días", size="1", variant="soft", color_scheme="green", radius="full", on_click=lambda: State.abrir_vencimiento_modal(">10 días")),
-                                spacing="2",
-                                flex_wrap="wrap",
-                                justify_content="center"
-                            ),
-                            width="100%",
-                            margin_top="2"
-                        )
-                    ),
-                    columns={"base": "1", "lg": "2"},
-                    spacing="6",
-                    width="100%",
-                ),
-
-                # Volumen por Áreas Responsables (Lista detallada con filtro y scroll)
-                rx.box(
+                # Contenedor de Layout Horizontal Responsivo (Gráficas + Sidebar Premium)
+                rx.flex(
+                    # Columna Izquierda: Gráficas y Distribución por Área
                     rx.vstack(
-                        rx.hstack(
-                            rx.heading("Distribución por Área Responsable", size="5", color=rx.color_mode_cond(light="#1e293b", dark="#f8fafc"), font_weight="bold"),
-                            rx.spacer(),
-                            rx.input(
-                                placeholder="Filtrar área...",
-                                value=State.search_area_query,
-                                on_change=State.set_search_area_query,
-                                variant="surface",
-                                radius="full",
-                                size="2",
-                                width="200px"
+                        # Rejilla de Gráficas (2 Columnas)
+                        rx.grid(
+                            # 1. Cumplimiento (Dona)
+                            chart_card(
+                                "Nivel de Cumplimiento",
+                                rc.pie_chart(
+                                    rc.tooltip(),
+                                    rc.legend(layout="horizontal", vertical_align="bottom", align="center"),
+                                    rc.pie(
+                                        rc.cell(fill="#10b981"),
+                                        rc.cell(fill="#ef4444"),
+                                        data=State.compliance_chart_data,
+                                        data_key="value",
+                                        name_key="name",
+                                        cx="50%",
+                                        cy="50%",
+                                        outer_radius=100,
+                                        inner_radius=65,
+                                        label=True,
+                                    ),
+                                    width="100%",
+                                    height=300,
+                                ),
+                                extra_content=rx.center(
+                                    rx.hstack(
+                                        rx.text(State.compliance_percentage, font_size="4xl", font_weight="bold", color="#10b981"),
+                                        rx.text("%", font_size="xl", font_weight="bold", color="#10b981"),
+                                    ),
+                                    margin_top="-150px",
+                                    margin_bottom="110px",
+                                    pointer_events="none"
+                                )
                             ),
+
+                            # 2. Tipos de Solicitud (Barras)
+                            chart_card(
+                                "Volumen por Tipo",
+                                rc.bar_chart(
+                                    rc.x_axis(data_key="name"),
+                                    rc.y_axis(domain=[0, State.max_registros_tipo]),
+                                    rc.tooltip(),
+                                    rc.bar(data_key="cantidad", fill="#3b82f6", radius=[6, 6, 0, 0]),
+                                    data=State.data_grafica_tipo,
+                                    width="100%",
+                                    height=300,
+                                )
+                            ),
+
+                            # 3. Tiempos de Respuesta (Línea)
+                            chart_card(
+                                "Tiempos Promedio de Respuesta",
+                                rc.line_chart(
+                                    rc.x_axis(data_key="month"),
+                                    rc.y_axis(),
+                                    rc.tooltip(),
+                                    rc.line(type="monotone", data_key="dias", stroke="#8b5cf6", stroke_width=4, dot={"r": 5, "fill": "#8b5cf6", "stroke": "#ffffff", "strokeWidth": 2}),
+                                    data=State.monthly_response_times,
+                                    width="100%",
+                                    height=300,
+                                ),
+                                extra_content=rx.box(),
+                            ),
+
+                            # 4. Solicitudes por vencer (Barras semáforo)
+                            chart_card(
+                                "Estado de Vencimiento",
+                                rx.box(
+                                    # Gráfico principal
+                                    rc.bar_chart(
+                                        rc.x_axis(data_key="name"),
+                                        rc.y_axis(),
+                                        rc.tooltip(),
+                                        rc.bar(
+                                            rc.cell(fill="#ef4444"),
+                                            rc.cell(fill="#f59e0b"),
+                                            rc.cell(fill="#f59e0b"),
+                                            rc.cell(fill="#10b981"),
+                                            data_key="cantidad",
+                                            radius=[6, 6, 0, 0]
+                                        ),
+                                        data=State.solicitudes_por_vencer_data,
+                                        width="100%",
+                                        height=300,
+                                    ),
+                                    # Capa superpuesta con botones invisibles sobre cada barra para capturar clicks
+                                    rx.hstack(
+                                        rx.box(width="25%", height="100%", cursor="pointer", on_click=lambda: State.abrir_vencimiento_modal("Vencidas")),
+                                        rx.box(width="25%", height="100%", cursor="pointer", on_click=lambda: State.abrir_vencimiento_modal("1-5 días")),
+                                        rx.box(width="25%", height="100%", cursor="pointer", on_click=lambda: State.abrir_vencimiento_modal("6-10 días")),
+                                        rx.box(width="25%", height="100%", cursor="pointer", on_click=lambda: State.abrir_vencimiento_modal(">10 días")),
+                                        position="absolute",
+                                        top="0",
+                                        left="10%",  # offset for y-axis
+                                        width="90%",
+                                        height="85%", # offset for x-axis
+                                        z_index="10",
+                                        opacity="0"
+                                    ),
+                                    position="relative",
+                                    width="100%"
+                                ),
+                                extra_content=rx.center(
+                                    rx.hstack(
+                                        rx.button("Vencidas", size="1", variant="soft", color_scheme="red", radius="full", on_click=lambda: State.abrir_vencimiento_modal("Vencidas")),
+                                        rx.button("1-5 días", size="1", variant="soft", color_scheme="orange", radius="full", on_click=lambda: State.abrir_vencimiento_modal("1-5 días")),
+                                        rx.button("6-10 días", size="1", variant="soft", color_scheme="yellow", radius="full", on_click=lambda: State.abrir_vencimiento_modal("6-10 días")),
+                                        rx.button(">10 días", size="1", variant="soft", color_scheme="green", radius="full", on_click=lambda: State.abrir_vencimiento_modal(">10 días")),
+                                        spacing="2",
+                                        flex_wrap="wrap",
+                                        justify_content="center"
+                                    ),
+                                    width="100%",
+                                    margin_top="2"
+                                )
+                            ),
+                            columns={"base": "1", "lg": "2"},
+                            spacing="6",
                             width="100%",
-                            align_items="center"
                         ),
-                        rx.divider(margin_y="4", border_color=rx.color_mode_cond(light="#e2e8f0", dark="#334155")),
+
+                        spacing="6",
+                        flex="1",
+                        width="100%",
+                        align_items="stretch"
+                    ),
+
+                    # Columna Derecha: Sidebar con Tarjetas Premium
+                    rx.vstack(
+                        # 1. Resumen numérico
                         rx.box(
                             rx.vstack(
-                                rx.foreach(
-                                    State.top_areas,
-                                    lambda row: rx.hstack(
-                                        rx.icon("users", size=18, color=rx.color_mode_cond(light="#64748b", dark="#94a3b8")),
-                                        rx.text(row.get('name'), font_weight="medium", font_size="md", color=rx.color_mode_cond(light="#334155", dark="#cbd5e1")),
-                                        rx.spacer(),
-                                        rx.badge(row.get('total'), color_scheme="blue", variant="surface", size="3", radius="full"),
-                                        width="100%",
-                                        padding_y="3",
-                                        border_bottom=rx.color_mode_cond(light="1px solid #f1f5f9", dark="1px solid #1e293b"),
-                                        align_items="center"
-                                    ),
+                                rx.hstack(
+                                    rx.icon("activity", size=16, color="#2563eb"),
+                                    rx.text("Resumen de Actividad", font_size="sm", font_weight="700", color=rx.color_mode_cond(light="#1e293b", dark="#f8fafc")),
+                                    spacing="2", align_items="center"
                                 ),
-                                spacing="0",
-                                width="100%"
+                                rx.divider(border_color=rx.color_mode_cond(light="#e2e8f0", dark="#334155")),
+                                rx.hstack(
+                                    rx.text("Solicitudes Totales", font_size="13px", color=rx.color_mode_cond(light="#64748b", dark="#94a3b8"), flex="1"),
+                                    rx.text(State.numero_solicitudes, font_size="13px", font_weight="700", color=rx.color_mode_cond(light="#1e293b", dark="#f8fafc")),
+                                    width="100%", align_items="center",
+                                    padding_y="2",
+                                    border_bottom=f"1px solid {rx.color_mode_cond(light='#f1f5f9', dark='#1e293b')}"
+                                ),
+                                rx.hstack(
+                                    rx.text("Tiempo Promedio Cierre", font_size="13px", color=rx.color_mode_cond(light="#64748b", dark="#94a3b8"), flex="1"),
+                                    rx.text("10 min", font_size="13px", font_weight="700", color=rx.color_mode_cond(light="#1e293b", dark="#f8fafc")),
+                                    width="100%", align_items="center",
+                                    padding_y="2"
+                                ),
+                                spacing="3", align_items="stretch", width="100%"
                             ),
-                            max_height="320px",
-                            overflow_y="auto",
-                            width="100%",
-                            padding_right="2"
-                        )
+                            p="5",
+                            bg=rx.color_mode_cond(light="#ffffff", dark="#1e293b"),
+                            border=rx.color_mode_cond(light="1px solid #e2e8f0", dark="1px solid #334155"),
+                            border_radius="2xl",
+                            box_shadow="0 4px 6px -1px rgba(0,0,0,0.05)",
+                            width="100%"
+                        ),
+
+                        # 2. Áreas Destacadas
+                        rx.box(
+                            rx.vstack(
+                                rx.hstack(
+                                    rx.icon("building-2", size=16, color="#8b5cf6"),
+                                    rx.text("Áreas con más solicitudes", font_size="sm", font_weight="700", color=rx.color_mode_cond(light="#1e293b", dark="#f8fafc")),
+                                    spacing="2", align_items="center"
+                                ),
+                                rx.divider(border_color=rx.color_mode_cond(light="#e2e8f0", dark="#334155")),
+                                rx.input(
+                                    placeholder="Filtrar área...",
+                                    value=State.search_area_query,
+                                    on_change=State.set_search_area_query,
+                                    variant="surface",
+                                    radius="full",
+                                    size="1",
+                                    width="100%"
+                                ),
+                                rx.box(
+                                    rx.vstack(
+                                        rx.foreach(
+                                            State.top_areas,
+                                            lambda row: rx.hstack(
+                                                rx.box(
+                                                    rx.icon("users", size=14, color=rx.color_mode_cond(light="#64748b", dark="#94a3b8")),
+                                                    p="1",
+                                                    bg=rx.color_mode_cond(light="#f1f5f9", dark="rgba(255,255,255,0.05)"),
+                                                    border_radius="md",
+                                                    flex_shrink="0"
+                                                ),
+                                                rx.text(row.get('name'), font_size="13px", font_weight="medium", color=rx.color_mode_cond(light="#334155", dark="#cbd5e1"), flex="1", overflow="hidden", text_overflow="ellipsis", white_space="nowrap"),
+                                                rx.badge(row.get('total'), color_scheme="purple", variant="soft", radius="full", size="1"),
+                                                width="100%",
+                                                padding_y="2",
+                                                border_bottom=f"1px solid {rx.color_mode_cond(light='#f1f5f9', dark='#1e293b')}",
+                                                align_items="center",
+                                                spacing="2"
+                                            )
+                                        ),
+                                        spacing="0", width="100%"
+                                    ),
+                                    max_height="240px",
+                                    overflow_y="auto",
+                                    width="100%",
+                                    padding_right="1"
+                                ),
+                                spacing="3", align_items="stretch", width="100%"
+                            ),
+                            p="5",
+                            bg=rx.color_mode_cond(light="#ffffff", dark="#1e293b"),
+                            border=rx.color_mode_cond(light="1px solid #e2e8f0", dark="1px solid #334155"),
+                            border_radius="2xl",
+                            box_shadow="0 4px 6px -1px rgba(0,0,0,0.05)",
+                            width="100%"
+                        ),
+
+                        # 3. Estados Resumen
+                        rx.box(
+                            rx.vstack(
+                                rx.hstack(
+                                    rx.icon("layers", size=16, color="#f59e0b"),
+                                    rx.text("Estados actuales", font_size="sm", font_weight="700", color=rx.color_mode_cond(light="#1e293b", dark="#f8fafc")),
+                                    spacing="2", align_items="center"
+                                ),
+                                rx.divider(border_color=rx.color_mode_cond(light="#e2e8f0", dark="#334155")),
+                                rx.vstack(
+                                    rx.foreach(
+                                        State.data_grafica_estado,
+                                        lambda row: rx.hstack(
+                                            rx.box(
+                                                width="8px", height="8px",
+                                                border_radius="full",
+                                                bg=rx.match(
+                                                    row.get("name"),
+                                                    ("Radicada", "#f59e0b"),
+                                                    ("Asignada a Area", "#3b82f6"),
+                                                    ("En Gestion de Area", "#8b5cf6"),
+                                                    ("Solucionada", "#10b981"),
+                                                    ("Reabierta", "#eab308"),
+                                                    ("Cerrada", "#16a34a"),
+                                                    "#64748b"
+                                                ),
+                                                flex_shrink="0"
+                                            ),
+                                            rx.text(row.get("name", ""), font_size="13px", color=rx.color_mode_cond(light="#334155", dark="#cbd5e1"), flex="1"),
+                                            rx.text(row.get("cantidad", 0), font_size="13px", font_weight="700", color=rx.color_mode_cond(light="#1e293b", dark="#f8fafc")),
+                                            spacing="3", align_items="center",
+                                            padding_y="2",
+                                            border_bottom=f"1px solid {rx.color_mode_cond(light='#f1f5f9', dark='#1e293b')}",
+                                            width="100%"
+                                        )
+                                    ),
+                                    spacing="0", width="100%"
+                                ),
+                                spacing="3", align_items="stretch", width="100%"
+                            ),
+                            p="5",
+                            bg=rx.color_mode_cond(light="#ffffff", dark="#1e293b"),
+                            border=rx.color_mode_cond(light="1px solid #e2e8f0", dark="1px solid #334155"),
+                            border_radius="2xl",
+                            box_shadow="0 4px 6px -1px rgba(0,0,0,0.05)",
+                            width="100%"
+                        ),
+                        spacing="6",
+                        width={"base": "100%", "lg": "320px"},
+                        flex_shrink="0",
+                        align_items="stretch"
                     ),
-                    p="8",
-                    bg=rx.color_mode_cond(light="#ffffff", dark="#1e293b"),
-                    border=rx.color_mode_cond(light="1px solid #e2e8f0", dark="1px solid #334155"),
-                    border_radius="3xl",
-                    box_shadow=rx.color_mode_cond(light="0 4px 6px -1px rgba(0, 0, 0, 0.05)", dark="none"),
+                    flex_direction={"base": "column", "lg": "row"},
+                    spacing="6",
                     width="100%",
-                    margin_top="6",
-                    _hover={"box_shadow": rx.color_mode_cond(light="0 10px 15px -3px rgba(0, 0, 0, 0.1)", dark="0 10px 15px -3px rgba(0, 0, 0, 0.5)")},
-                    transition="box-shadow 0.3s ease"
+                    align_items="start",
                 ),
 
                 spacing="6",
@@ -8225,228 +9054,189 @@ def usuarios_page() -> rx.Component:
 
 
 def cambiar_rol_page() -> rx.Component:
-    return rx.cond(
-        State.es_autenticada & (State.rol_usuario == "funcionario"),
-        rx.box(
-            navbar(),
-            rx.center(
-                rx.box(
-                    # Glow de fondo moderno
-                    rx.box(
-                        position="absolute",
-                        top="-120px",
-                        left="-80px",
-                        width="280px",
-                        height="280px",
-                        bg="rgba(37, 99, 235, 0.25)",
-                        border_radius="full",
-                        filter="blur(80px)",
-                        z_index="0",
+    text_main = rx.color_mode_cond(light="#1e293b", dark="#f1f5f9")
+    text_sub = rx.color_mode_cond(light="#64748b", dark="#94a3b8")
+    card_bg = rx.color_mode_cond(light="white", dark="#1e293b")
+    card_bdr = rx.color_mode_cond(light="#e2e8f0", dark="#334155")
+    page_bg = rx.color_mode_cond(light="#f8fafc", dark="#0f172a")
+    input_bg = rx.color_mode_cond(light="#f8fafc", dark="#0f172a")
+    input_bdr = rx.color_mode_cond(light="#e2e8f0", dark="#1e293b")
+    blue_acc = "#2563eb"
+    navy = "#1e3a8a"
+    navy_dark = "#172554"
+    red_err = "#ef4444"
+    green = "#10b981"
+
+    acceso_denegado = rx.center(
+        rx.vstack(
+            rx.icon("shield-x", size=48, color=red_err),
+            rx.heading("Acceso Denegado", size="7", color=red_err),
+            rx.text("Solo funcionarios autenticados pueden acceder.", color=text_sub),
+            rx.link(rx.button("Ir al Login", color_scheme="blue", border_radius="10px"), href="/login"),
+            spacing="4", align_items="center",
+        ),
+        min_height="80vh",
+    )
+ 
+    contenido = rx.box(
+        navbar(),
+        rx.center(
+            rx.box(
+                rx.vstack(
+                    # Encabezado con ícono
+                    rx.vstack(
+                        rx.box(
+                            rx.icon("user-cog", size=28, color="white"),
+                            bg=f"linear-gradient(135deg, {navy_dark}, {navy})",
+                            border_radius="16px",
+                            width="60px", height="60px",
+                            display="flex", align_items="center", justify_content="center",
+                            box_shadow=f"0 8px 24px {navy}55",
+                        ),
+                        rx.heading(
+                            "Cambiar Rol de Usuario",
+                            size="6", color=text_main,
+                            font_weight="800", letter_spacing="-0.02em",
+                            text_align="center",
+                        ),
+                        rx.text(
+                            "Promueve a un ciudadano al rol de funcionario del sistema",
+                            font_size="14px", color=text_sub, text_align="center",
+                        ),
+                        spacing="3", align_items="center", width="100%",
                     ),
-                    rx.box(
-                        position="absolute",
-                        bottom="-140px",
-                        right="-100px",
-                        width="320px",
-                        height="320px",
-                        bg="rgba(14, 165, 233, 0.2)",
-                        border_radius="full",
-                        filter="blur(90px)",
-                        z_index="0",
-                    ),
+                    # Tarjeta formulario
                     rx.box(
                         rx.vstack(
+                            # Aviso informativo
                             rx.hstack(
                                 rx.box(
-                                    rx.icon("shield-check", size=28, color=rx.color_mode_cond(light="#1d4ed8", dark="#60a5fa")),
-                                    p="3",
-                                    border_radius="xl",
-                                    bg=rx.color_mode_cond(light="#dbeafe", dark="rgba(59, 130, 246, 0.18)"),
+                                    rx.icon("info", size=15, color=blue_acc),
+                                    width="30px", height="30px",
+                                    border_radius="8px",
+                                    bg=rx.color_mode_cond(light="#eff6ff", dark="#0f2744"),
+                                    display="flex", align_items="center", justify_content="center",
+                                    flex_shrink="0",
                                 ),
-                                rx.vstack(
-                                    rx.heading(
-                                        "Promover ciudadano a funcionario",
-                                        size="7",
-                                        font_weight="bold",
-                                        color=rx.color_mode_cond(light="#0f172a", dark="#f8fafc"),
-                                    ),
-                                    rx.text(
-                                        "Gestiona privilegios con validación previa y confirmación explícita.",
-                                        color=rx.color_mode_cond(light="#475569", dark="#94a3b8"),
-                                        font_size="md",
-                                    ),
-                                    spacing="1",
-                                    align_items="start",
+                                rx.text(
+                                    "Al promover un ciudadano, tendrá acceso al panel de "
+                                    "funcionario y recibirá una notificación por correo.",
+                                    font_size="13px", color=text_sub, line_height="1.6",
                                 ),
-                                spacing="4",
-                                align_items="center",
+                                spacing="3", align_items="start",
+                                bg=rx.color_mode_cond(light="#eff6ff", dark="#0a1628"),
+                                border=rx.color_mode_cond(light="1px solid #bfdbfe", dark="1px solid #1e3a5f"),
+                                border_radius="10px",
+                                padding="12px 16px",
                                 width="100%",
                             ),
-                            rx.grid(
-                                # Columna de contexto
-                                rx.vstack(
-                                    rx.box(
-                                        rx.hstack(
-                                            rx.icon("triangle-alert", size=16, color=rx.color_mode_cond(light="#b45309", dark="#fbbf24")),
-                                            rx.text(
-                                                "Esta acción otorga acceso a panel de gestión, reportes y actualización de solicitudes.",
-                                                font_size="sm",
-                                                color=rx.color_mode_cond(light="#92400e", dark="#fde68a"),
-                                            ),
-                                            spacing="2",
-                                            align_items="start",
-                                        ),
-                                        p="4",
-                                        border_radius="lg",
-                                        bg=rx.color_mode_cond(light="#fffbeb", dark="rgba(245, 158, 11, 0.1)"),
-                                        border=rx.color_mode_cond(light="1px solid #fde68a", dark="1px solid rgba(245, 158, 11, 0.25)"),
-                                        width="100%",
-                                    ),
-                                    rx.box(
-                                        rx.vstack(
-                                            rx.text("Checklist previo", font_weight="bold", color=rx.color_mode_cond(light="#0f172a", dark="#e2e8f0")),
-                                            rx.text("• Validar identidad del ciudadano", font_size="sm", color=rx.color_mode_cond(light="#475569", dark="#94a3b8")),
-                                            rx.text("• Confirmar solicitud/autorización", font_size="sm", color=rx.color_mode_cond(light="#475569", dark="#94a3b8")),
-                                            rx.text("• Verificar correo institucional", font_size="sm", color=rx.color_mode_cond(light="#475569", dark="#94a3b8")),
-                                            spacing="1",
-                                            align_items="start",
-                                        ),
-                                        p="4",
-                                        border_radius="lg",
-                                        bg=rx.color_mode_cond(light="rgba(241, 245, 249, 0.7)", dark="rgba(15, 23, 42, 0.4)"),
-                                        border=rx.color_mode_cond(light="1px solid #e2e8f0", dark="1px solid #334155"),
-                                        width="100%",
-                                    ),
-                                    spacing="4",
-                                    align_items="start",
-                                    width="100%",
+                            # Campo correo
+                            rx.vstack(
+                                rx.hstack(
+                                    rx.text("Correo del usuario a promover", font_size="13px", font_weight="600", color=text_main),
+                                    rx.text("*", color="#e85d04", font_size="13px"),
+                                    spacing="1",
                                 ),
-                                # Columna de acción
-                                rx.vstack(
-                                    rx.vstack(
-                                        rx.text(
-                                            "Correo electrónico del ciudadano",
-                                            font_weight="semibold",
-                                            font_size="sm",
-                                            color=rx.color_mode_cond(light="#334155", dark="#cbd5e1"),
-                                        ),
+                                rx.box(
+                                    rx.hstack(
+                                        rx.icon("mail", size=16, color=text_sub),
                                         rx.input(
                                             placeholder="usuario@ejemplo.com",
                                             value=State.cambiar_rol_email,
                                             on_change=State.set_cambiar_rol_email,
-                                            width="100%",
                                             type="email",
-                                            size="3",
-                                            radius="large",
-                                        ),
-                                        spacing="2",
-                                        width="100%",
-                                    ),
-                                    rx.checkbox(
-                                        "Confirmo validación de identidad y autorización para promover este rol.",
-                                        is_checked=State.confirmar_promocion_rol,
-                                        on_change=State.set_confirmar_promocion_rol,
-                                        color=rx.color_mode_cond(light="#334155", dark="#cbd5e1"),
-                                        size="2",
-                                    ),
-                                    rx.hstack(
-                                        rx.button(
-                                            rx.icon("arrow-up-circle", size=20),
-                                            "Confirmar promoción",
-                                            on_click=State.cambiar_rol_ciudadano_a_funcionario,
-                                            color_scheme="blue",
-                                            size="3",
-                                            radius="large",
+                                            border="none",
+                                            bg="transparent",
+                                            color=text_main,
+                                            font_size="14px",
                                             flex="1",
-                                            is_disabled=(State.cambiar_rol_email == "") | (~State.confirmar_promocion_rol),
-                                            _hover={"transform": "translateY(-1px)"},
-                                            transition="all 0.2s",
+                                            _focus={"outline": "none"},
                                         ),
-                                        rx.button(
-                                            rx.icon("rotate-ccw", size=16),
-                                            "Limpiar",
-                                            on_click=State.limpiar_form_promocion_rol,
-                                            variant="soft",
-                                            color_scheme="gray",
-                                            size="3",
-                                            radius="large",
-                                        ),
-                                        spacing="3",
-                                        width="100%",
+                                        spacing="2", align_items="center", width="100%",
                                     ),
-                                    rx.cond(
-                                        State.cambiar_rol_mensaje != "",
-                                        rx.box(
-                                            rx.text(
-                                                State.cambiar_rol_mensaje,
-                                                color=rx.cond(
-                                                    State.cambiar_rol_mensaje.contains("✅"),
-                                                    "#059669",
-                                                    "#dc2626",
-                                                ),
-                                                font_size="sm",
-                                                white_space="pre-wrap",
-                                            ),
-                                            p="4",
-                                            border_radius="lg",
-                                            bg=rx.cond(
-                                                State.cambiar_rol_mensaje.contains("✅"),
-                                                rx.color_mode_cond(light="#ecfdf5", dark="rgba(16, 185, 129, 0.1)"),
-                                                rx.color_mode_cond(light="#fef2f2", dark="rgba(239, 68, 68, 0.1)"),
-                                            ),
-                                            border=rx.cond(
-                                                State.cambiar_rol_mensaje.contains("✅"),
-                                                rx.color_mode_cond(light="1px solid #a7f3d0", dark="1px solid rgba(16, 185, 129, 0.2)"),
-                                                rx.color_mode_cond(light="1px solid #fecaca", dark="1px solid rgba(239, 68, 68, 0.2)"),
-                                            ),
-                                            width="100%",
-                                        ),
+                                    bg=input_bg,
+                                    border=f"1.5px solid {input_bdr}",
+                                    border_radius="10px",
+                                    padding="10px 14px",
+                                    width="100%",
+                                    _focus_within={
+                                        "border_color": blue_acc,
+                                        "box_shadow": "0 0 0 3px rgba(37,99,235,0.12)",
+                                    },
+                                ),
+                                spacing="2", align_items="start", width="100%",
+                            ),
+                            
+                            # Checkbox para PQRS-1 backend
+                            rx.checkbox(
+                                "Confirmo validación de identidad y autorización.",
+                                is_checked=State.confirmar_promocion_rol,
+                                on_change=State.set_confirmar_promocion_rol,
+                                color=text_sub,
+                                size="2",
+                            ),
+
+                            # Mensaje resultado
+                            rx.cond(
+                                State.cambiar_rol_mensaje != "",
+                                rx.hstack(
+                                    rx.icon(
+                                        rx.cond(State.cambiar_rol_mensaje.contains("✅"), "circle-check", "circle-x"),
+                                        size=16,
+                                        color=rx.cond(State.cambiar_rol_mensaje.contains("✅"), green, red_err),
                                     ),
-                                    spacing="4",
-                                    align_items="start",
+                                    rx.text(
+                                        State.cambiar_rol_mensaje,
+                                        font_size="13px", font_weight="500",
+                                        color=rx.cond(State.cambiar_rol_mensaje.contains("✅"), green, red_err),
+                                    ),
+                                    spacing="2", align_items="center",
+                                    bg=rx.cond(State.cambiar_rol_mensaje.contains("✅"), rx.color_mode_cond(light="#f0fdf4", dark="#002818"), rx.color_mode_cond(light="#fef2f2", dark="#2d0000")),
+                                    border=rx.cond(State.cambiar_rol_mensaje.contains("✅"), "1px solid #bbf7d0", "1px solid #fecaca"),
+                                    border_radius="8px",
+                                    padding="10px 14px",
                                     width="100%",
                                 ),
-                                columns=rx.breakpoints(initial="1", md="2"),
-                                spacing="6",
-                                width="100%",
                             ),
-                            spacing="6",
-                            width="100%",
-                            align_items="start",
+                            # Botón
+                            rx.button(
+                                rx.hstack(
+                                    rx.icon("arrow-up-circle", size=16),
+                                    rx.text("Promover a Funcionario", font_size="14px", font_weight="600"),
+                                    spacing="2",
+                                ),
+                                on_click=State.cambiar_rol_ciudadano_a_funcionario,
+                                width="100%", height="46px",
+                                bg=f"linear-gradient(135deg, {navy_dark}, {navy})",
+                                color="white",
+                                border_radius="10px",
+                                box_shadow=f"0 4px 14px {navy}44",
+                                _hover={"opacity": "0.92", "transform": "translateY(-1px)"},
+                                transition="all 0.15s ease",
+                                is_disabled=(State.cambiar_rol_email == "") | (~State.confirmar_promocion_rol),
+                            ),
+                            spacing="4", align_items="stretch", width="100%",
                         ),
-                        p=rx.breakpoints(initial="5", md="6"),
-                        border_radius="24px",
-                        bg=rx.color_mode_cond(light="rgba(255, 255, 255, 0.92)", dark="rgba(15, 23, 42, 0.82)"),
-                        backdrop_filter="blur(18px)",
-                        border=rx.color_mode_cond(light="1px solid rgba(226, 232, 240, 0.9)", dark="1px solid rgba(51, 65, 85, 0.9)"),
-                        box_shadow=rx.color_mode_cond(light="0 20px 30px -12px rgba(15, 23, 42, 0.2)", dark="0 25px 50px -12px rgba(0, 0, 0, 0.75)"),
+                        bg=card_bg,
+                        border=f"1px solid {card_bdr}",
+                        border_radius="18px",
+                        padding="28px 30px",
+                        box_shadow=rx.color_mode_cond(light="0 4px 24px rgba(0,0,0,0.07)", dark="0 4px 32px rgba(0,0,0,0.4)"),
                         width="100%",
-                        max_width="920px",
-                        z_index="1",
                     ),
-                    position="relative",
-                    width="100%",
-                    max_width="920px",
+                    spacing="6", align_items="center", width="100%",
                 ),
-                width="100%",
-                min_height="calc(100vh - 64px)",
-                padding_x="6",
-                padding_y=rx.breakpoints(initial="2", md="3"),
-                display="flex",
-                align_items="center",
-                justify_content="center",
+                width="100%", max_width="480px",
+                padding={"base": "24px 16px", "md": "48px 24px"},
             ),
-            bg=rx.color_mode_cond(light="#f1f5f9", dark="#0b1220"),
-            min_height="100vh",
-            width="100%"
+            width="100%", min_height="90vh",
         ),
-        rx.box(
-            navbar(),
-            rx.center(
-                access_denied_widget("Solo funcionarios autenticados pueden acceder a esta función."),
-                size="3"
-            )
-        )
+        bg=page_bg, min_height="100vh", width="100%",
+    )
+ 
+    return rx.cond(
+        State.es_autenticada & (State.rol_usuario == "funcionario"),
+        contenido, acceso_denegado,
     )
 
 
@@ -8685,10 +9475,10 @@ def ayuda_funcionario_page() -> rx.Component:
     )
 
 app = rx.App()
-app.add_page(index, route="/", title="Inicio - Sistema PQRS")
-app.add_page(registro_page, route="/registro", title="Registro de Ciudadano")
-app.add_page(registro_funcionario_page, route="/registro-funcionario", title="Registro de Funcionario")
-app.add_page(login_page, route="/login", title="Iniciar Sesión")
+app.add_page(index, route="/", title="Inicio - Sistema PQRS", on_load=State.redirigir_si_autenticado)
+app.add_page(registro_page, route="/registro", title="Registro de Ciudadano", on_load=State.redirigir_si_autenticado)
+app.add_page(registro_funcionario_page, route="/registro-funcionario", title="Registro de Funcionario", on_load=State.redirigir_si_autenticado)
+app.add_page(login_page, route="/login", title="Iniciar Sesión", on_load=State.redirigir_si_autenticado)
 app.add_page(solicitudes_page, route="/solicitudes", title="Nueva Solicitud PQRS")
 app.add_page(change_password_page, route="/cambiar-contrasena", title="Cambiar Contraseña")
 app.add_page(dashboard, route="/dashboard", title="Panel de Ciudadano", on_load=State.cargar_solicitudes)

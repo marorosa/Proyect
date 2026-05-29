@@ -34,3 +34,16 @@ Thumbs.db
 
 # Database migrations
 alembic/versions/*.py
+
+# Node / pnpm
+node_modules/
+.pnpm-store/
+.pnpm-debug.log
+pnpm-lock.yaml
+package-lock.json
+yarn.lock
+.npmrc
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.node_repl_history

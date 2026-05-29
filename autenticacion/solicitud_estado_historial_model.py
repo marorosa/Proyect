@@ -10,3 +10,4 @@ class SolicitudEstadoHistorial(SQLModel, table=True):
     estado_nuevo: str
     fecha_cambio: datetime = Field(default_factory=datetime.now)
     observaciones: Optional[str] = None
+    documento_adjunto: Optional[str] = None
