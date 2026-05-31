@@ -794,6 +794,8 @@ class State(rx.State):
     rango_vencimiento_seleccionado: str = ""
     solicitudes_vencimiento_filtradas: list[dict] = []
     detalle_solicitud_modal_abierto: bool = False
+    # --- Modal confirmación de cierre de sesión ---
+    show_logout_confirm: bool = False
 
     def abrir_detalle_solicitud(self, solicitud_id: int):
         for s in self.solicitudes:
@@ -2984,19 +2986,78 @@ Sistema PQRS
             return
         try:
             with rx.session() as session:
-                # Ordenar por fecha descendente para mostrar las más nuevas primero
                 query = select(Solicitud).order_by(Solicitud.fecha.desc())
-                if self.rol_usuario == "ciudadano" and self.email_actual:
-                    query = query.where(Solicitud.creado_por == self.email_actual)
+                if self.rol_usuario == "ciudadano":
+                    # Usar email_actual; si está vacío (sesión antigua) usar correo_usuario como fallback
+                    email_filtro = str(self.email_actual or self.correo_usuario or "").strip().lower()
+                    if email_filtro:
+                        query = query.where(Solicitud.creado_por == email_filtro)
+                    else:
+                        # Sin email identificado: mostrar lista vacía en lugar de TODAS las solicitudes
+                        self.solicitudes = []
+                        return
                 solicitudes_obj = session.exec(query).all()
                 self.solicitudes = [
                     self._enriquecer_solicitud_dict(self._solicitud_a_dict(s))
                     for s in solicitudes_obj
                 ]
-
         except Exception as e:
             print(f"Error cargando solicitudes: {e}")
             self.solicitudes = []
+
+    def hidratar_sesion_ciudadano(self):
+        """Sincroniza nombre, email y rol desde BD. Si la sesión es fantasma, hace logout."""
+        if not self.es_autenticada:
+            self.cargar_solicitudes()
+            return
+
+        email = str(self.email_actual or self.correo_usuario or "").strip().lower()
+        uid_str = str(self.id_usuario or "0").strip()
+
+        # ── Sesión fantasma: autenticado pero sin ningún identificador ──
+        if not email and uid_str in ("0", ""):
+            pass  # Sesión fantasma — limpiar y redirigir
+            self.es_autentica = "false"
+            self.email_actual = ""
+            self.correo_usuario = ""
+            self.id_usuario = "0"
+            self.rol_usuario = ""
+            self.nombres = ""
+            self.solicitudes = []
+            return rx.redirect("/login")
+
+        user = None
+        try:
+            with rx.session() as session:
+                if email:
+                    user = session.exec(select(Usuario).where(Usuario.email == email)).first()
+                if not user and uid_str not in ("0", ""):
+                    try:
+                        user = session.exec(select(Usuario).where(Usuario.id == int(uid_str))).first()
+                    except Exception:
+                        pass
+                if user:
+                    self.email_actual = user.email
+                    self.correo_usuario = user.email
+                    self.id_usuario = str(user.id)
+                    self.rol_usuario = user.rol or "ciudadano"
+                    self.nombres = str(user.nombres or "").strip()
+
+                else:
+                    # Usuario no encontrado en BD — sesión inválida, forzar logout
+
+                    self.es_autentica = "false"
+                    self.email_actual = ""
+                    self.correo_usuario = ""
+                    self.id_usuario = "0"
+                    self.rol_usuario = ""
+                    self.nombres = ""
+                    self.solicitudes = []
+                    return rx.redirect("/login")
+        except Exception as e:
+            print(f"[HIDRATAR] Error al hidratar sesión: {e}")
+        self.cargar_solicitudes()
+
 
     def cargar_datos_funcionario(self):
         self.cargar_solicitudes()
@@ -3143,11 +3204,24 @@ Sistema PQRS
         enviar_correo_bienvenida(self.correo, self.correo)
         self.succes = exito_mensaje
         self.mostrar_toast("¡Registro exitoso! Bienvenido al sistema.", "success")
+        # Obtener el id del usuario recién creado para completar la sesión
+        correo_registrado = str(self.correo or "").strip().lower()
+        try:
+            with rx.session() as session:
+                nuevo = session.exec(select(Usuario).where(Usuario.email == correo_registrado)).first()
+                if nuevo:
+                    self.id_usuario = str(nuevo.id)
+                    self.nombres = getattr(nuevo, "nombres", "") or ""
+        except Exception as e:
+            print(f"No se pudo cargar el id del nuevo usuario: {e}")
         self.limpiar_formulario_registro()
-        # Login automático después del registro
+        # Login automático después del registro — asignar TODAS las cookies de sesión
+        # igual que en login() para que el filtro de solicitudes funcione correctamente
         self.es_autentica = "true"
-        self.correo_usuario = self.correo
-        self.rol_usuario = "ciudadano"
+        self.email_actual = correo_registrado   # ← clave: el filtro WHERE usa esta cookie
+        self.correo_usuario = correo_registrado
+        self.rol_usuario = rol
+        self.cargar_solicitudes()   # ahora filtra solo las del ciudadano (ninguna por ser nuevo)
         self.cargar_usuarios()
 
     def signup(self):
@@ -3159,9 +3233,9 @@ Sistema PQRS
             rol="ciudadano",
             exito_mensaje="Registro exitoso. Revisa tu correo para confirmar. Ahora el funcionario puede iniciar sesión.",
         )
-        # Redirigir a solicitudes después del registro
+        # Redirigir al dashboard del ciudadano después del registro
         if not self.error_de_registro:
-            return rx.redirect("/solicitudes")
+            return rx.redirect("/dashboard")
 
     def signup_funcionario(self):
         self.borrar_mensajes_de_estado()
@@ -3233,8 +3307,17 @@ Sistema PQRS
             return rx.redirect("/dashboard-funcionario")
         return rx.redirect("/dashboard")
 
+    def abrir_logout_confirm(self):
+        """Muestra el modal de confirmación de cierre de sesión."""
+        self.show_logout_confirm = True
+
+    def cerrar_logout_confirm(self):
+        """Cierra el modal de confirmación sin hacer logout."""
+        self.show_logout_confirm = False
+
     def logout(self):
         "cerrar sesion de usuario"
+        self.show_logout_confirm = False
         self.id_usuario = "0"
         self.correo = ""
         self.contraseña = ""
@@ -4517,7 +4600,7 @@ def nav_icon_link(icon_name: str, text: str, href: str, active: bool = False, di
     return link_content
 
 def navbar() -> rx.Component:
-    return rx.box(
+    return rx.fragment(rx.box(
         rx.hstack(
             # Logo / marca
             rx.link(
@@ -4564,17 +4647,155 @@ def navbar() -> rx.Component:
             # Controles derecha
             rx.hstack(
                 rx.color_mode.button(color="rgba(255,255,255,0.8)", _hover={"color": "white"}),
+                # Chip animado con icono y nombre del funcionario/usuario
                 rx.cond(
                     State.es_autenticada,
-                    rx.button(
-                        rx.icon("log-out", size=16),
-                        "Salir",
-                        on_click=State.logout,
-                        color_scheme="red",
-                        variant="soft",
-                        radius="full"
+                    rx.hstack(
+                        rx.box(
+                            rx.icon("user-circle", size=20, color="rgba(255,255,255,0.9)"),
+                            id="navbar-user-avatar",
+                            width="36px",
+                            height="36px",
+                            border_radius="full",
+                            bg="rgba(255,255,255,0.15)",
+                            display="flex",
+                            align_items="center",
+                            justify_content="center",
+                            flex_shrink="0",
+                            transition="all 0.2s ease",
+                        ),
+                        rx.box(
+                            rx.el.span(
+                                State.nombres,
+                                id="navbar-user-name",
+                                style={
+                                    "color": "white",
+                                    "font_weight": "700",
+                                    "font_size": "13px",
+                                    "white_space": "nowrap",
+                                    "opacity": "0",
+                                    "max_width": "0px",
+                                    "overflow": "hidden",
+                                    "transition": "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                                    "margin_left": "0px",
+                                    "display": "block",
+                                    "line_height": "1.2",
+                                },
+                            ),
+                            rx.el.span(
+                                State.rol_usuario,
+                                id="navbar-user-role",
+                                style={
+                                    "color": "rgba(255,255,255,0.65)",
+                                    "font_weight": "500",
+                                    "font_size": "10px",
+                                    "white_space": "nowrap",
+                                    "opacity": "0",
+                                    "max_width": "0px",
+                                    "overflow": "hidden",
+                                    "transition": "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                                    "margin_left": "0px",
+                                    "display": "block",
+                                    "text_transform": "capitalize",
+                                    "line_height": "1.2",
+                                    "margin_top": "1px",
+                                },
+                            ),
+                            display="flex",
+                            flex_direction="column",
+                            align_items="flex-start",
+                        ),
+                        align_items="center",
+                        id="navbar-user-chip",
+                        spacing="2",
+                        padding="6px 10px",
+                        border_radius="12px",
+                        bg="rgba(255,255,255,0.10)",
+                        border="1px solid rgba(255,255,255,0.18)",
+                        cursor="default",
+                        transition="all 0.2s ease",
                     ),
-                    rx.box(display="none")
+                    rx.box(display="none"),
+                ),
+                # CSS global para animaciones hover del chip y botón salir
+                rx.el.style("""
+                    #navbar-user-chip:hover {
+                        background: rgba(255,255,255,0.22) !important;
+                        border-color: rgba(255,255,255,0.35) !important;
+                    }
+                    #navbar-user-chip:hover #navbar-user-name {
+                        opacity: 1 !important;
+                        max-width: 160px !important;
+                        margin-left: 4px !important;
+                    }
+                    #navbar-user-chip:hover #navbar-user-role {
+                        opacity: 1 !important;
+                        max-width: 160px !important;
+                        margin-left: 4px !important;
+                    }
+                    #navbar-user-chip:hover #navbar-user-avatar {
+                        background: rgba(255,255,255,0.28) !important;
+                        transform: scale(1.08);
+                    }
+                    #navbar-logout-btn:hover {
+                        background: rgba(239,68,68,0.22) !important;
+                        border-color: rgba(239,68,68,0.45) !important;
+                    }
+                    #navbar-logout-btn:hover #navbar-logout-icon {
+                        background: rgba(239,68,68,0.35) !important;
+                        transform: scale(1.08) rotate(-8deg);
+                    }
+                    #navbar-logout-btn:hover #navbar-logout-text {
+                        opacity: 1 !important;
+                        max-width: 60px !important;
+                        margin-left: 8px !important;
+                    }
+                """),
+                # Botón Salir animado con CSS global (sin class_name)
+                rx.cond(
+                    State.es_autenticada,
+                    rx.hstack(
+                        rx.box(
+                            rx.icon("log-out", size=18, color="rgba(252,165,165,0.95)"),
+                            id="navbar-logout-icon",
+                            width="34px",
+                            height="34px",
+                            border_radius="10px",
+                            bg="rgba(239,68,68,0.15)",
+                            display="flex",
+                            align_items="center",
+                            justify_content="center",
+                            flex_shrink="0",
+                            transition="all 0.2s ease",
+                        ),
+                        rx.el.span(
+                            "Salir",
+                            id="navbar-logout-text",
+                            style={
+                                "color": "rgba(252,165,165,1)",
+                                "font_weight": "600",
+                                "font_size": "13px",
+                                "white_space": "nowrap",
+                                "opacity": "0",
+                                "max_width": "0px",
+                                "overflow": "hidden",
+                                "transition": "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                                "margin_left": "0px",
+                                "display": "inline-block",
+                            },
+                        ),
+                        id="navbar-logout-btn",
+                        align_items="center",
+                        spacing="0",
+                        padding="4px 8px",
+                        border_radius="12px",
+                        bg="rgba(239,68,68,0.10)",
+                        border="1px solid rgba(239,68,68,0.25)",
+                        cursor="pointer",
+                        transition="all 0.2s ease",
+                        on_click=State.abrir_logout_confirm,
+                    ),
+                    rx.box(display="none"),
                 ),
                 spacing="4", align_items="center"
             ),
@@ -4584,7 +4805,7 @@ def navbar() -> rx.Component:
         padding_y="12px", padding_x={"base": "16px", "md": "32px"}, width="100%",
         box_shadow="0 4px 20px -2px rgba(0, 0, 0, 0.2)",
         position="sticky", top="0", z_index="50", border_bottom="1px solid rgba(255,255,255,0.1)"
-    )
+    ), logout_confirm_modal())
 
 
 def access_denied_widget(message: str) -> rx.Component:
@@ -4630,6 +4851,119 @@ def utility_bar() -> rx.Component:
         bg=rx.color_mode_cond(light="#0f172a", dark="#020617"),
         border_bottom="1px solid rgba(255,255,255,0.08)"
     )
+
+def logout_confirm_modal():
+    """Modal de confirmacion de cierre de sesion."""
+    return rx.cond(
+        State.show_logout_confirm,
+        rx.box(
+            rx.box(
+                position="fixed", inset="0",
+                bg="rgba(0,0,0,0.55)",
+                backdrop_filter="blur(4px)",
+                z_index="1000",
+                on_click=State.cerrar_logout_confirm,
+            ),
+            rx.center(
+                rx.box(
+                    rx.vstack(
+                        rx.center(
+                            rx.box(
+                                rx.icon("log-out", size=32, color="#f87171"),
+                                width="64px", height="64px",
+                                border_radius="full",
+                                bg="rgba(239,68,68,0.12)",
+                                border="2px solid rgba(239,68,68,0.30)",
+                                display="flex",
+                                align_items="center",
+                                justify_content="center",
+                            ),
+                            width="100%",
+                        ),
+                        rx.text(
+                            "¿Cerrar sesión?",
+                            font_size="22px",
+                            font_weight="800",
+                            color="white",
+                            text_align="center",
+                            letter_spacing="-0.02em",
+                        ),
+                        rx.text(
+                            "Tu sesión se cerrará y tendrás que volver a iniciar sesión.",
+                            font_size="14px",
+                            color="rgba(255,255,255,0.65)",
+                            text_align="center",
+                            line_height="1.6",
+                        ),
+                        rx.box(width="100%", height="1px", bg="rgba(255,255,255,0.10)"),
+                        rx.hstack(
+                            rx.box(
+                                rx.hstack(
+                                    rx.icon("x", size=16, color="rgba(255,255,255,0.85)"),
+                                    rx.text("Cancelar", font_weight="600", font_size="14px", color="rgba(255,255,255,0.9)"),
+                                    spacing="2", align_items="center",
+                                ),
+                                padding="10px 22px",
+                                border_radius="12px",
+                                bg="rgba(255,255,255,0.08)",
+                                border="1px solid rgba(255,255,255,0.15)",
+                                cursor="pointer",
+                                transition="all 0.2s ease",
+                                on_click=State.cerrar_logout_confirm,
+                                _hover={
+                                    "bg": "rgba(255,255,255,0.16)",
+                                    "border": "1px solid rgba(255,255,255,0.30)",
+                                    "transform": "translateY(-1px)",
+                                },
+                            ),
+                            rx.box(
+                                rx.hstack(
+                                    rx.icon("log-out", size=16, color="white"),
+                                    rx.text("Sí, salir", font_weight="700", font_size="14px", color="white"),
+                                    spacing="2", align_items="center",
+                                ),
+                                padding="10px 22px",
+                                border_radius="12px",
+                                bg="linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)",
+                                border="1px solid rgba(220,38,38,0.5)",
+                                cursor="pointer",
+                                transition="all 0.2s ease",
+                                box_shadow="0 8px 20px -6px rgba(220,38,38,0.55)",
+                                on_click=State.logout,
+                                _hover={
+                                    "bg": "linear-gradient(135deg, #ef4444 0%, #dc2626 100%)",
+                                    "box_shadow": "0 12px 28px -6px rgba(220,38,38,0.75)",
+                                    "transform": "translateY(-2px)",
+                                },
+                            ),
+                            spacing="3",
+                            justify="center",
+                            width="100%",
+                        ),
+                        spacing="5",
+                        align_items="center",
+                        width="100%",
+                    ),
+                    bg="linear-gradient(135deg, rgba(15,23,42,0.97) 0%, rgba(30,27,75,0.97) 100%)",
+                    border="1px solid rgba(255,255,255,0.12)",
+                    border_radius="24px",
+                    padding="36px 32px",
+                    width="390px",
+                    max_width="90vw",
+                    box_shadow="0 30px 60px -20px rgba(0,0,0,0.85)",
+                    backdrop_filter="blur(24px)",
+                    position="relative",
+                    z_index="1002",
+                ),
+                position="fixed",
+                inset="0",
+                z_index="1001",
+            ),
+            position="fixed", inset="0", z_index="1000",
+        ),
+        rx.box(display="none"),
+    )
+
 def toast_notification() -> rx.Component:
     return rx.cond(
         State.toast_visible,
@@ -5913,104 +6247,168 @@ def change_password_page() -> rx.Component:
 
 def login_page() -> rx.Component:
     return rx.box(
-        # Icono desplegable de casa agregado
+        # Orbes de fondo animados
+        rx.box(position="fixed", top="-120px", left="-100px", width="420px", height="420px",
+               bg="rgba(37,99,235,0.22)", border_radius="full", filter="blur(110px)", z_index="0",
+               style={"animation": "loginOrb1 8s ease-in-out infinite alternate"}),
+        rx.box(position="fixed", bottom="-100px", right="-80px", width="380px", height="380px",
+               bg="rgba(14,165,233,0.18)", border_radius="full", filter="blur(100px)", z_index="0",
+               style={"animation": "loginOrb2 10s ease-in-out infinite alternate"}),
+        rx.box(position="fixed", top="40%", left="50%", width="300px", height="300px",
+               bg="rgba(99,102,241,0.12)", border_radius="full", filter="blur(90px)", z_index="0",
+               style={"animation": "loginOrb1 12s ease-in-out infinite alternate-reverse"}),
+        # Boton volver al inicio
         rx.box(
             rx.menu.root(
                 rx.menu.trigger(
-                    rx.icon_button(rx.icon("home", size=24), size="3", variant="soft", color_scheme="blue", radius="full", cursor="pointer")
+                    rx.box(
+                        rx.icon("home", size=18, color="rgba(255,255,255,0.85)"),
+                        width="40px", height="40px",
+                        border_radius="full",
+                        bg="rgba(255,255,255,0.12)",
+                        border="1px solid rgba(255,255,255,0.2)",
+                        display="flex", align_items="center", justify_content="center",
+                        cursor="pointer",
+                        transition="all 0.2s ease",
+                        _hover={"bg": "rgba(255,255,255,0.22)", "transform": "scale(1.05)"},
+                    )
                 ),
                 rx.menu.content(
-                    rx.menu.item(
-                        "Ir al Inicio",
-                        on_click=rx.redirect("/"),
-                    ),
-                    rx.menu.item(
-                        "Ir a Registro",
-                        on_click=rx.redirect("/registro"),
-                    ),
+                    rx.menu.item("Ir al Inicio", on_click=rx.redirect("/")),
+                    rx.menu.item("Ir a Registro", on_click=rx.redirect("/registro")),
                 )
             ),
-            position="absolute", top="24px", left="24px", z_index="50"
+            position="fixed", top="24px", left="24px", z_index="50"
         ),
         toast_notification(),
         rx.toast.provider(position="top-center", close_button=True, offset="20px"),
         rx.center(
-            rx.box(position="absolute", top="-140px", left="-120px", width="360px", height="360px", bg="rgba(37, 99, 235, 0.28)", border_radius="full", filter="blur(95px)", z_index="0"),
-            rx.box(position="absolute", bottom="-130px", right="-90px", width="340px", height="340px", bg="rgba(14, 165, 233, 0.22)", border_radius="full", filter="blur(90px)", z_index="0"),
             rx.grid(
+                # Panel izquierdo - Info
                 rx.box(
                     rx.vstack(
-                        rx.badge("Plataforma PQRS", color_scheme="blue", variant="soft", radius="full"),
+                        # Logo / marca
+                        rx.hstack(
+                            rx.box(
+                                rx.icon("shield-check", size=22, color="#38bdf8"),
+                                width="44px", height="44px",
+                                border_radius="12px",
+                                bg="rgba(56,189,248,0.15)",
+                                border="1px solid rgba(56,189,248,0.3)",
+                                display="flex", align_items="center", justify_content="center",
+                            ),
+                            rx.vstack(
+                                rx.text("Sistema PQRS", font_size="16px", font_weight="800",
+                                        color="white", letter_spacing="-0.01em", line_height="1"),
+                                rx.text("Plataforma ciudadana", font_size="11px",
+                                        color="rgba(255,255,255,0.55)", font_weight="500", line_height="1"),
+                                spacing="1", align_items="start",
+                            ),
+                            spacing="3", align_items="center",
+                        ),
+                        rx.box(width="100%", height="1px", bg="rgba(255,255,255,0.10)"),
                         rx.heading(
-                            "Gestiona tus solicitudes en un solo lugar",
-                            size="8",
-                            color=rx.color_mode_cond(light="#0f172a", dark="#f8fafc"),
-                            line_height="1.1",
+                            "Gestiona tus solicitudes ciudadanas",
+                            size="7",
+                            color="white",
+                            line_height="1.15",
                             letter_spacing="-0.02em",
+                            font_weight="800",
                         ),
                         rx.text(
-                            "Consulta estados, tiempos de respuesta y trazabilidad con una experiencia mas clara y segura.",
-                            color=rx.color_mode_cond(light="#475569", dark="#94a3b8"),
-                            font_size="md",
+                            "Consulta estados, tiempos de respuesta y trazabilidad con seguridad y claridad.",
+                            color="rgba(255,255,255,0.65)",
+                            font_size="15px",
+                            line_height="1.6",
                         ),
-                        rx.box(
-                            rx.image(
-                                src="/pqrs.png",
-                                alt="Portal PQRS",
-                                width="100%",
-                                height="190px",
-                                object_fit="cover",
-                            ),
+                        rx.image(
+                            src="/pqrs.png",
+                            alt="Portal PQRS",
                             width="100%",
-                            border_radius="xl",
-                            overflow="hidden",
-                            border=rx.color_mode_cond(light="1px solid #cbd5e1", dark="1px solid #334155"),
-                            box_shadow=rx.color_mode_cond(light="0 12px 30px -16px rgba(15, 23, 42, 0.45)", dark="0 12px 30px -16px rgba(2, 6, 23, 0.9)"),
+                            height="180px",
+                            object_fit="cover",
+                            border_radius="16px",
+                            border="1px solid rgba(255,255,255,0.12)",
+                            box_shadow="0 20px 40px -12px rgba(0,0,0,0.55)",
                         ),
                         rx.vstack(
-                            rx.hstack(rx.icon("shield-check", size=16, color="#38bdf8"), rx.text("Acceso seguro y protegido", color=rx.color_mode_cond(light="#334155", dark="#cbd5e1"), font_size="sm"), spacing="2"),
-                            rx.hstack(rx.icon("timer", size=16, color="#38bdf8"), rx.text("Seguimiento de tiempos de respuesta", color=rx.color_mode_cond(light="#334155", dark="#cbd5e1"), font_size="sm"), spacing="2"),
-                            rx.hstack(rx.icon("bell-ring", size=16, color="#38bdf8"), rx.text("Notificaciones y trazabilidad", color=rx.color_mode_cond(light="#334155", dark="#cbd5e1"), font_size="sm"), spacing="2"),
-                            spacing="3",
-                            align_items="start",
-                            width="100%",
+                            rx.hstack(
+                                rx.box(rx.icon("shield-check", size=15, color="#38bdf8"),
+                                       width="28px", height="28px", border_radius="8px",
+                                       bg="rgba(56,189,248,0.12)", border="1px solid rgba(56,189,248,0.25)",
+                                       display="flex", align_items="center", justify_content="center"),
+                                rx.text("Acceso seguro y protegido", color="rgba(255,255,255,0.78)", font_size="13px"),
+                                spacing="3", align_items="center",
+                            ),
+                            rx.hstack(
+                                rx.box(rx.icon("timer", size=15, color="#a78bfa"),
+                                       width="28px", height="28px", border_radius="8px",
+                                       bg="rgba(167,139,250,0.12)", border="1px solid rgba(167,139,250,0.25)",
+                                       display="flex", align_items="center", justify_content="center"),
+                                rx.text("Seguimiento de tiempos de respuesta", color="rgba(255,255,255,0.78)", font_size="13px"),
+                                spacing="3", align_items="center",
+                            ),
+                            rx.hstack(
+                                rx.box(rx.icon("bell-ring", size=15, color="#34d399"),
+                                       width="28px", height="28px", border_radius="8px",
+                                       bg="rgba(52,211,153,0.12)", border="1px solid rgba(52,211,153,0.25)",
+                                       display="flex", align_items="center", justify_content="center"),
+                                rx.text("Notificaciones y trazabilidad completa", color="rgba(255,255,255,0.78)", font_size="13px"),
+                                spacing="3", align_items="center",
+                            ),
+                            spacing="3", align_items="start", width="100%",
                         ),
                         rx.spacer(),
-                        rx.text("Sistema de atención ciudadana", color=rx.color_mode_cond(light="#64748b", dark="#64748b"), font_size="xs", font_weight="medium", text_transform="uppercase", letter_spacing="0.08em"),
-                        spacing="5",
-                        align_items="start",
-                        height="100%",
+                        rx.text("© 2026 Sistema PQRS · Todos los derechos reservados",
+                                color="rgba(255,255,255,0.3)", font_size="11px"),
+                        spacing="5", align_items="start", height="100%", width="100%",
                     ),
-                    bg=rx.color_mode_cond(light="rgba(241, 245, 249, 0.75)", dark="rgba(15, 23, 42, 0.45)"),
-                    border=rx.color_mode_cond(light="1px solid rgba(203, 213, 225, 0.6)", dark="1px solid rgba(51, 65, 85, 0.65)"),
-                    border_radius="2xl",
-                    p={"base": "6", "md": "7"},
-                    display={"base": "none", "lg": "block"},
+                    bg="rgba(255,255,255,0.04)",
+                    border="1px solid rgba(255,255,255,0.10)",
+                    border_radius="28px",
+                    p={"base": "7", "md": "8"},
+                    backdrop_filter="blur(20px)",
+                    display={"base": "none", "lg": "flex"},
+                    flex_direction="column",
                     height="100%",
+                    box_shadow="inset 0 1px 0 rgba(255,255,255,0.08)",
                 ),
+                # Panel derecho - Formulario
                 rx.box(
                     rx.vstack(
+                        # Icono de acceso animado
                         rx.center(
                             rx.box(
-                                rx.icon("lock", size=28, color=rx.color_mode_cond(light="#2563eb", dark="#60a5fa")),
-                                p="3",
-                                bg=rx.color_mode_cond(light="#eff6ff", dark="rgba(37, 99, 235, 0.14)"),
-                                border="1px solid",
-                                border_color=rx.color_mode_cond(light="#bfdbfe", dark="rgba(96, 165, 250, 0.25)"),
-                                border_radius="xl",
+                                rx.icon("lock", size=30, color="#60a5fa"),
+                                width="68px", height="68px",
+                                border_radius="20px",
+                                bg="rgba(37,99,235,0.18)",
+                                border="1.5px solid rgba(96,165,250,0.35)",
+                                display="flex", align_items="center", justify_content="center",
+                                box_shadow="0 8px 32px -8px rgba(37,99,235,0.5)",
+                                style={"animation": "loginLockPulse 3s ease-in-out infinite"},
                             ),
                             width="100%",
                         ),
                         rx.vstack(
-                            rx.heading("Bienvenido de vuelta", size="8", color=rx.color_mode_cond(light="#0f172a", dark="#f8fafc"), text_align="center"),
-                            rx.text("Ingresa tus credenciales para acceder al sistema", color=rx.color_mode_cond(light="#64748b", dark="#94a3b8"), font_size="md", text_align="center"),
-                            spacing="2",
-                            width="100%",
+                            rx.heading("Bienvenido de vuelta",
+                                       size="7", color="white", text_align="center",
+                                       font_weight="800", letter_spacing="-0.02em"),
+                            rx.text("Ingresa tus credenciales para acceder al sistema",
+                                    color="rgba(255,255,255,0.55)", font_size="14px", text_align="center"),
+                            spacing="2", width="100%",
                         ),
+                        rx.box(width="100%", height="1px", bg="rgba(255,255,255,0.08)"),
                         rx.form(
                             rx.vstack(
+                                # Email field
                                 rx.vstack(
-                                    rx.text("Correo electrónico", font_weight="medium", font_size="sm", color=rx.color_mode_cond(light="#334155", dark="#cbd5e1")),
+                                    rx.hstack(
+                                        rx.icon("mail", size=13, color="rgba(255,255,255,0.5)"),
+                                        rx.text("Correo electrónico", font_weight="600", font_size="13px",
+                                                color="rgba(255,255,255,0.75)"),
+                                        spacing="2", align_items="center",
+                                    ),
                                     rx.input(
                                         placeholder="usuario@empresa.com",
                                         name="correo",
@@ -6022,15 +6420,19 @@ def login_page() -> rx.Component:
                                         radius="large",
                                         variant="surface",
                                     ),
-                                    spacing="2",
-                                    width="100%",
-                                    align_items="start",
+                                    spacing="2", width="100%", align_items="start",
                                 ),
+                                # Password field
                                 rx.vstack(
-                                    rx.text("Contraseña", font_weight="medium", font_size="sm", color=rx.color_mode_cond(light="#334155", dark="#cbd5e1")),
+                                    rx.hstack(
+                                        rx.icon("key-round", size=13, color="rgba(255,255,255,0.5)"),
+                                        rx.text("Contraseña", font_weight="600", font_size="13px",
+                                                color="rgba(255,255,255,0.75)"),
+                                        spacing="2", align_items="center",
+                                    ),
                                     rx.hstack(
                                         rx.input(
-                                            placeholder="�?��?��?��?��?��?��?��?�",
+                                            placeholder="••••••••",
                                             name="contraseña",
                                             type=rx.cond(State.show_password, "text", "password"),
                                             value=State.contraseña,
@@ -6041,7 +6443,9 @@ def login_page() -> rx.Component:
                                             variant="surface",
                                         ),
                                         rx.button(
-                                            rx.cond(State.show_password, rx.icon("eye-off", size=18), rx.icon("eye", size=18)),
+                                            rx.cond(State.show_password,
+                                                    rx.icon("eye-off", size=16),
+                                                    rx.icon("eye", size=16)),
                                             on_click=State.toggle_show_password,
                                             type="button",
                                             variant="soft",
@@ -6049,83 +6453,111 @@ def login_page() -> rx.Component:
                                             radius="large",
                                             color_scheme="blue",
                                         ),
-                                        width="100%",
-                                        spacing="2",
+                                        width="100%", spacing="2",
                                     ),
-                                    spacing="2",
-                                    width="100%",
-                                    align_items="start",
+                                    spacing="2", width="100%", align_items="start",
                                 ),
+                                # Error
                                 rx.cond(
                                     State.error_de_contraseña != "",
-                                    rx.box(
-                                        rx.text(State.error_de_contraseña, color="#ef4444", font_size="sm", font_weight="medium"),
+                                    rx.hstack(
+                                        rx.icon("circle-x", size=15, color="#f87171"),
+                                        rx.text(State.error_de_contraseña, color="#fca5a5",
+                                                font_size="13px", font_weight="500"),
+                                        spacing="2", align_items="center",
                                         p="3",
-                                        bg=rx.color_mode_cond(light="#fef2f2", dark="rgba(127, 29, 29, 0.25)"),
-                                        border=rx.color_mode_cond(light="1px solid #fecaca", dark="1px solid rgba(239, 68, 68, 0.32)"),
-                                        border_radius="lg",
+                                        bg="rgba(239,68,68,0.12)",
+                                        border="1px solid rgba(239,68,68,0.28)",
+                                        border_radius="12px",
                                         width="100%",
-                                        animation="flashMessage 5s ease forwards",
-                                        style={
-                                            "@keyframes flashMessage": {
-                                                "0%": {"opacity": "0", "transform": "translateY(-4px)"},
-                                                "10%": {"opacity": "1", "transform": "translateY(0px)"},
-                                                "80%": {"opacity": "1", "transform": "translateY(0px)"},
-                                                "100%": {"opacity": "0", "transform": "translateY(-4px)"},
-                                            }
-                                        },
                                     ),
                                     rx.box(),
                                 ),
+                                # Submit button
                                 rx.button(
-                                    rx.hstack(rx.icon("log-in", size=18), rx.text("Iniciar sesión", font_weight="bold"), spacing="2", justify="center"),
+                                    rx.hstack(
+                                        rx.icon("log-in", size=18, color="white"),
+                                        rx.text("Iniciar sesión", font_weight="700", font_size="15px", color="white"),
+                                        spacing="2", justify="center", align_items="center",
+                                    ),
                                     type="submit",
-                                    color_scheme="blue",
                                     width="100%",
                                     size="4",
                                     radius="large",
-                                    margin_top="2",
-                                    box_shadow="0 10px 25px -10px rgba(59, 130, 246, 0.75)",
-                                    _hover={"transform": "translateY(-1px)", "box_shadow": "0 15px 30px -10px rgba(59, 130, 246, 0.85)"},
-                                    transition="all 0.2s",
+                                    style={
+                                        "background": "linear-gradient(135deg, #2563eb 0%, #1d4ed8 50%, #1e40af 100%)",
+                                        "border": "1px solid rgba(96,165,250,0.3)",
+                                        "cursor": "pointer",
+                                        "transition": "all 0.25s cubic-bezier(0.4,0,0.2,1)",
+                                        "boxShadow": "0 10px 28px -8px rgba(37,99,235,0.65)",
+                                        "paddingTop": "14px",
+                                        "paddingBottom": "14px",
+                                    },
+                                    _hover={
+                                        "style": {
+                                            "background": "linear-gradient(135deg, #3b82f6 0%, #2563eb 50%, #1d4ed8 100%)",
+                                            "boxShadow": "0 16px 36px -8px rgba(37,99,235,0.8)",
+                                            "transform": "translateY(-2px)",
+                                        }
+                                    },
                                 ),
-                                spacing="4",
-                                width="100%",
+                                spacing="4", width="100%",
                             ),
                             on_submit=State.login,
                             width="100%",
                         ),
-                        rx.text(
-                            "Al continuar aceptas las políticas de uso y tratamiento de datos.",
-                            color=rx.color_mode_cond(light="#64748b", dark="#94a3b8"),
-                            font_size="xs",
-                            text_align="center",
+                        # Divider con texto
+                        rx.hstack(
+                            rx.box(flex="1", height="1px", bg="rgba(255,255,255,0.10)"),
+                            rx.text("o", color="rgba(255,255,255,0.35)", font_size="12px"),
+                            rx.box(flex="1", height="1px", bg="rgba(255,255,255,0.10)"),
+                            width="100%", align_items="center", spacing="3",
                         ),
+                        # Register link
                         rx.center(
                             rx.link(
-                                "¿No tienes cuenta? Regístrate aquí",
+                                rx.hstack(
+                                    rx.icon("user-plus", size=14, color="#60a5fa"),
+                                    rx.text("¿No tienes cuenta? Regístrate aquí",
+                                            font_size="13px", font_weight="600", color="#60a5fa"),
+                                    spacing="2", align_items="center",
+                                ),
                                 href="/registro",
-                                font_size="sm",
-                                font_weight="medium",
-                                color=rx.color_mode_cond(light="#2563eb", dark="#60a5fa"),
-                                _hover={"text_decoration": "underline"},
+                                text_decoration="none",
+                                _hover={"opacity": "0.8"},
                             ),
                             width="100%",
                         ),
-                        spacing="6",
-                        width="100%",
-                        align_items="stretch",
+                        rx.text("Al continuar aceptas las políticas de uso y tratamiento de datos.",
+                                color="rgba(255,255,255,0.3)", font_size="11px", text_align="center"),
+                        spacing="5", width="100%", align_items="stretch",
                     ),
-                    bg=rx.color_mode_cond(light="rgba(255, 255, 255, 0.92)", dark="rgba(15, 23, 42, 0.72)"),
-                    border=rx.color_mode_cond(light="1px solid rgba(226, 232, 240, 0.9)", dark="1px solid rgba(51, 65, 85, 0.75)"),
-                    border_radius="2xl",
-                    p={"base": "6", "md": "8"},
-                    box_shadow=rx.color_mode_cond(light="0 25px 55px -20px rgba(15, 23, 42, 0.35)", dark="0 25px 55px -20px rgba(2, 6, 23, 0.85)"),
+                    bg="rgba(255,255,255,0.05)",
+                    border="1px solid rgba(255,255,255,0.12)",
+                    border_radius="28px",
+                    p={"base": "7", "md": "8"},
+                    backdrop_filter="blur(24px)",
+                    box_shadow="0 32px 64px -24px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.10)",
+                    style={
+                        "@keyframes loginLockPulse": {
+                            "0%": {"box_shadow": "0 8px 32px -8px rgba(37,99,235,0.5)"},
+                            "50%": {"box_shadow": "0 8px 48px -4px rgba(37,99,235,0.8)"},
+                            "100%": {"box_shadow": "0 8px 32px -8px rgba(37,99,235,0.5)"},
+                        },
+                        "@keyframes loginOrb1": {
+                            "from": {"transform": "translate(0, 0) scale(1)"},
+                            "to": {"transform": "translate(40px, 30px) scale(1.1)"},
+                        },
+                        "@keyframes loginOrb2": {
+                            "from": {"transform": "translate(0, 0) scale(1)"},
+                            "to": {"transform": "translate(-30px, -40px) scale(1.08)"},
+                        },
+                    },
                 ),
-                columns={"base": "1", "lg": "1.1fr 1fr"},
+                columns={"base": "1", "lg": "1fr 1fr"},
                 gap="5",
                 width="100%",
-                max_width={"base": "95%", "md": "1000px"},
+                max_width={"base": "95%", "sm": "480px", "lg": "960px"},
                 z_index="1",
             ),
             width="100%",
@@ -6135,9 +6567,10 @@ def login_page() -> rx.Component:
             px="4",
             py={"base": "6", "md": "10"},
         ),
-        bg=rx.color_mode_cond(light="#f8fafc", dark="#0f172a"),
+        bg="linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%)",
         width="100%",
         min_height="100vh",
+        position="relative",
     )
 
 
@@ -6367,7 +6800,7 @@ def dashboard() -> rx.Component:
                 display="flex", align_items="center", justify_content="center", box_shadow="0 10px 15px -3px rgba(0,0,0,0.1)",
                 margin_bottom="4"
             ),
-            rx.heading(f"¡Hola, {State.nombres}!", size="7", color=text_color, font_weight="bold"),
+            rx.heading("¡Hola, ", State.nombres, "!", size="7", color=text_color, font_weight="bold"),
             rx.text("Bienvenido a tu panel digital.", color=subtext_color, font_size="sm"),
             
             rx.divider(margin_y="6", opacity="0.5"),
@@ -10985,7 +11418,7 @@ app.add_page(registro_funcionario_page, route="/registro-funcionario", title="Re
 app.add_page(login_page, route="/login", title="Iniciar Sesión", on_load=State.redirigir_si_autenticado)
 app.add_page(solicitudes_page, route="/solicitudes", title="Nueva Solicitud PQRS")
 app.add_page(change_password_page, route="/cambiar-contrasena", title="Cambiar Contraseña")
-app.add_page(dashboard, route="/dashboard", title="Panel de Ciudadano", on_load=State.cargar_solicitudes)
+app.add_page(dashboard, route="/dashboard", title="Panel de Ciudadano", on_load=State.hidratar_sesion_ciudadano)
 app.add_page(funcionario_dashboard, route="/dashboard-funcionario", title="Panel de Funcionario", on_load=State.cargar_datos_funcionario)
 app.add_page(funcionario_cerradas_dashboard, route="/dashboard-funcionario-cerradas", title="Solicitudes Cerradas", on_load=State.cargar_datos_funcionario)
 app.add_page(usuarios_page, route="/usuarios", title="Gestión de Usuarios", on_load=State.cargar_usuarios)
@@ -11064,3 +11497,5 @@ if app._api is not None:
                 app._api.routes.insert(0, Route(_path, endpoint=_handler, methods=["GET"]))
             except Exception as route_err:
                 print(f"No se pudo registrar ruta {_path}: {route_err}")
+
+
