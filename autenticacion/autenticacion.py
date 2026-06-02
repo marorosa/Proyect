@@ -28,12 +28,16 @@ from notificaciones import (
     formatear_nota_documento,
     get_app_base_url,
 )
+import logging
+
+# Logger para el módulo
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Carpeta donde se guardarán los archivos subidos por los usuarios
 BASE_DIR = Path(__file__).resolve().parent.parent
 UPLOAD_DIR = BASE_DIR / "assets" / "uploads"
-UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-# Segunda carpeta: la que sirve el frontend Vite en /uploads/
+
 WEB_UPLOAD_DIR = BASE_DIR / ".web" / "public" / "uploads"
 WEB_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 from typing import Any
@@ -240,7 +244,7 @@ def asegurar_espejo_web(nombre_archivo: str) -> None:
         if not destino.is_file() or destino.stat().st_mtime < origen.stat().st_mtime:
             shutil.copy2(origen, destino)
     except Exception:
-        pass
+        logger.exception("Error copiando archivo a espejo web: %s -> %s", origen, destino)
 
 
 def url_archivo_adjunto(nombre_archivo: str) -> str:
@@ -290,7 +294,7 @@ def _ultimo_adjunto_historial(solicitud_id: int) -> str:
             if nombre:
                 return nombre
     except Exception:
-        pass
+        logger.exception("Error obteniendo último adjunto del historial para solicitud %s", solicitud_id)
     return ""
 
 
@@ -394,7 +398,7 @@ def persistir_archivo_en_uploads(
             if data:
                 return _guardar_bytes(data, nombre_final)
         except Exception:
-            pass
+            logger.exception("Error leyendo objeto archivo en persistir_archivo_en_uploads")
 
     return ""
 
@@ -634,7 +638,7 @@ def _clasificar_semaforo_solicitud(solicitud: dict[str, Any]) -> str | None:
                 return "Amarillo"
             return "Verde"
         except Exception:
-            pass
+            logger.exception("Error calculando semáforo restante")
     return None
 
 
@@ -921,6 +925,15 @@ class State(rx.State):
         self.historial_estados = []
         from .solicitud_estado_historial_model import SolicitudEstadoHistorial
         with Session(engine) as session:
+            # Cargar la solicitud principal para incluir multimedia/comentarios
+            try:
+                solicitud_obj = session.get(Solicitud, solicitud_id)
+                if solicitud_obj:
+                    main = self._solicitud_a_dict(solicitud_obj)
+                else:
+                    main = {}
+            except Exception:
+                main = {}
             rows = session.exec(
                 select(SolicitudEstadoHistorial)
                 .where(SolicitudEstadoHistorial.solicitud_id == solicitud_id)
@@ -935,20 +948,62 @@ class State(rx.State):
                     if match:
                         doc = match.group(1).strip()
                         obs_raw = re.sub(r"\s*\[DOCUMENTO(?: ADJUNTO)?:[^\]]+\]", "", obs_raw).strip()
-                doc_meta = construir_metadata_adjunto(doc) if doc else {}
+                
+                adjuntos_metas = []
+                if doc:
+                    parts = [p.strip() for p in doc.split(",") if p.strip()]
+                    for p in parts:
+                        m = construir_metadata_adjunto(p)
+                        adjuntos_metas.append({
+                            "documento_adjunto": m.get("basename", p),
+                            "documento_href": m.get("href", ""),
+                            "documento_preview_src": m.get("preview_src", ""),
+                            "documento_existe": bool(m.get("existe", False)),
+                        })
+                
+                first_meta = adjuntos_metas[0] if adjuntos_metas else {}
                 estados.append(
                     {
                         "fecha": h.fecha_cambio.strftime("%Y-%m-%d %H:%M"),
                         "anterior": h.estado_anterior,
                         "nuevo": h.estado_nuevo,
                         "obs": obs_raw,
-                        "documento_adjunto": doc_meta.get("basename", doc),
-                        "documento_href": doc_meta.get("href", ""),
-                        "documento_preview_src": doc_meta.get("preview_src", ""),
-                        "documento_existe": doc_meta.get("existe", False),
+                        "documento_adjunto": first_meta.get("documento_adjunto", ""),
+                        "documento_href": first_meta.get("documento_href", ""),
+                        "documento_preview_src": first_meta.get("documento_preview_src", ""),
+                        "documento_existe": first_meta.get("documento_existe", False),
+                        "adjuntos": adjuntos_metas,
                     }
                 )
-            self.historial_estados = estados
+            # Prepend main solicitud info (multimedia / comentarios) as the first evento
+            if main:
+                adjuntos_metas = []
+                docs = main.get("documento_adjuntos", []) or []
+                if isinstance(docs, list):
+                    for d in docs:
+                        if isinstance(d, dict):
+                            adjuntos_metas.append({
+                                "documento_adjunto": d.get("basename", ""),
+                                "documento_href": d.get("href", ""),
+                                "documento_preview_src": d.get("preview_src", ""),
+                                "documento_existe": bool(d.get("existe", False)),
+                            })
+                first_meta = adjuntos_metas[0] if adjuntos_metas else {}
+
+                main_event = {
+                    "fecha": main.get("fecha") or "",
+                    "anterior": "",
+                    "nuevo": main.get("estado") or "",
+                    "obs": (main.get("descripcion") or "") + ("\nRespuesta: " + (main.get("respuesta") or "") if main.get("respuesta") else ""),
+                    "documento_adjunto": first_meta.get("documento_adjunto", ""),
+                    "documento_href": first_meta.get("documento_href", ""),
+                    "documento_preview_src": first_meta.get("documento_preview_src", ""),
+                    "documento_existe": first_meta.get("documento_existe", False),
+                    "adjuntos": adjuntos_metas,
+                }
+                self.historial_estados = [main_event] + estados
+            else:
+                self.historial_estados = estados
         self.historial_modal_abierto = True
 
     def cerrar_historial(self):
@@ -961,6 +1016,15 @@ class State(rx.State):
     toast_mensaje: str = ""
     toast_tipo: str = ""  # "success" o "error"
     toast_visible: bool = False
+
+    async def clear_mensajes_delay(self):
+        import asyncio
+        await asyncio.sleep(5)
+        self.solicitud_mensaje = ""
+        self.mensaje_actualizar_estado = ""
+        self.calificacion_mensaje = ""
+        self.toast_mensaje = ""
+        self.toast_visible = False
 
     "En esta clase se define el estado de la aplicación, es decir, las variables que se van a usar en la aplicación y sus valores iniciales."
     state_auto_setters = True
@@ -1507,7 +1571,7 @@ class State(rx.State):
                         from dateutil import parser as _p
                         ref = _p.parse(str(solicitud.get("fecha_respuesta"))).date()
                     except Exception:
-                        pass
+                        logger.exception("Error parseando fecha_respuesta para solicitud")
 
             # Contar días calendario desde la fecha de creación hasta la referencia calculada.
             days = max((ref - start).days, 0)
@@ -2208,7 +2272,7 @@ class State(rx.State):
                     shutil.copy2(path_val, destino_web)
                     guardado_ok = True
                 except Exception:
-                    pass
+                    logger.exception("Error copiando archivo desde path_val: %s", path_val)
 
             if not guardado_ok:
                 content_b64 = item_data.get("content")
@@ -2221,7 +2285,7 @@ class State(rx.State):
                             f.write(data)
                         guardado_ok = True
                     except Exception:
-                        pass
+                        logger.exception("Error decodificando/guardando contenido base64 para archivo: %s", name)
 
             if not guardado_ok:
                 self.archivo_error_mensaje = f"No se pudo guardar el archivo '{name}' en el servidor."
@@ -2391,6 +2455,8 @@ class State(rx.State):
                     "content": str(item_data.get("content") or ""),
                     "preview_src": str(meta.get("preview_src") or item_data.get("src") or ""),
                     "es_imagen": bool(meta.get("es_imagen")),
+                    "href": str(meta.get("href") or ""),
+                    "es_pdf": ext == "pdf",
                 }
             )
             nombres_actuales.add(basename)
@@ -2513,19 +2579,22 @@ class State(rx.State):
         self.registro_seccion_abierta = "ubicacion"
         self.error_de_registro = ""
 
-    def actualizar_estado_solicitud(self, files: Any = None):
+    async def actualizar_estado_solicitud(self, files: Any = None):
         """Actualiza el estado de una solicitud con validación para cerrada y guarda historial. HU9."""
         self.mensaje_actualizar_estado = ""
         if not self.editar_estado_id or not self.nuevo_estado:
             self.mensaje_actualizar_estado = "Selecciona un estado válido."
+            yield State.clear_mensajes_delay
             return
         # HU9: justificación obligatoria para CUALQUIER cambio de estado
         if not str(self.respuesta_solicitud or "").strip():
             self.mensaje_actualizar_estado = "Debes escribir una justificación para el cambio de estado."
+            yield State.clear_mensajes_delay
             return
-        # Si es Asignada a Area, validar que el area est�?© seleccionada
+        # Si es Asignada a Area, validar que el area est?© seleccionada
         if self.nuevo_estado == "Asignada a Area" and not str(self.area_para_asignar or "").strip():
             self.mensaje_actualizar_estado = "Selecciona el área a la que se va a asignar la solicitud."
+            yield State.clear_mensajes_delay
             return
         documentos_respuesta_guardados: list[str] = []
         intento_adjunto = bool(
@@ -2575,7 +2644,11 @@ class State(rx.State):
         if not documentos_respuesta_guardados and files:
             lista = files if isinstance(files, list) else [files]
             for item in lista:
-                ruta = _persistir_fuente(item)
+                if hasattr(item, "read"):
+                    upload_data = await item.read()
+                    ruta = _persistir_fuente({"name": getattr(item, "filename", getattr(item, "name", "adjunto")), "content": upload_data})
+                else:
+                    ruta = _persistir_fuente(item)
                 if ruta:
                     documentos_respuesta_guardados.append(ruta)
                     asegurar_espejo_web(os.path.basename(ruta))
@@ -2600,6 +2673,7 @@ class State(rx.State):
             self.mensaje_actualizar_estado = (
                 "No se pudo guardar el documento adjunto. Vuelve a subirlo e intenta de nuevo."
             )
+            yield State.clear_mensajes_delay
             return
         nombres_adjuntos = [os.path.basename(p) for p in documentos_respuesta_guardados]
         estado_nuevo = self.nuevo_estado
@@ -2608,10 +2682,11 @@ class State(rx.State):
         respuesta_enviada = self.respuesta_solicitud or ""
         datos_notificacion: dict[str, Any] | None = None
         try:
-            with Session(engine) as session:
+            with rx.session() as session:
                 solicitud_obj = session.get(Solicitud, self.editar_estado_id)
                 if not solicitud_obj:
                     self.mensaje_actualizar_estado = "Solicitud no encontrada."
+                    yield State.clear_mensajes_delay
                     return
                 estado_anterior = solicitud_obj.estado
                 solicitud_obj.estado = estado_nuevo
@@ -2672,17 +2747,23 @@ class State(rx.State):
             self._limpiar_campos_respuesta_documento()
             self._refrescar_solicitud_en_lista(solicitud_id_actualizada)
             self.mostrar_toast(f"Estado actualizado a '{estado_nuevo}' correctamente.", "success")
-
+            
+            # Start background thread for email notification
             if datos_notificacion:
                 import threading
-
                 threading.Thread(
                     target=_enviar_notificacion_estado_solicitud,
                     args=(dict(datos_notificacion), list(documentos_respuesta_guardados)),
                     daemon=True,
                 ).start()
+                
+            yield State.clear_mensajes_delay
+
         except Exception as e:
             self.mensaje_actualizar_estado = f"Error actualizando estado: {e}"
+            yield State.clear_mensajes_delay
+
+
 
     def abrir_editor_estado(self, solicitud_id: int, estado_actual: str):
         """Abre el editor de estado para una solicitud."""
@@ -2890,7 +2971,7 @@ Sistema PQRS
                     if "cumple_plazo" in parsed:
                         result["cumple_plazo"] = parsed.get("cumple_plazo")
         except Exception:
-            pass
+            logger.exception("Error parseando campo 'documento' de solicitud %s", getattr(solicitud, 'id', None))
 
         return result
         
@@ -3035,7 +3116,7 @@ Sistema PQRS
                     try:
                         user = session.exec(select(Usuario).where(Usuario.id == int(uid_str))).first()
                     except Exception:
-                        pass
+                        logger.exception("Error buscando usuario por id: %s", uid_str)
                 if user:
                     self.email_actual = user.email
                     self.correo_usuario = user.email
@@ -3392,29 +3473,35 @@ Sistema PQRS
         if not keep_message:
             self.solicitud_mensaje = ""
 
-    def crear_solicitud(self):
+    async def crear_solicitud(self, files: list[rx.UploadFile] = None):
         self.solicitud_mensaje = ""
         if not self.tipo_solicitud or not self.asunto or not self.descripcion:
             self.solicitud_mensaje = "Completa los campos obligatorios antes de enviar."
+            yield State.clear_mensajes_delay
             return
 
         # Validación de correo para usuarios no registrados
         if not self.es_autenticada:
             if not self.pqrs_contacto_email:
                 self.solicitud_mensaje = "Por favor ingresa un correo electrónico para recibir respuesta."
+                yield State.clear_mensajes_delay
                 return
             if not validar_correo(self.pqrs_contacto_email):
                 self.solicitud_mensaje = "El correo electrónico ingresado no es válido."
+                yield State.clear_mensajes_delay
                 return
         if not self.area_responsable:
             self.solicitud_mensaje = "Selecciona el área responsable."
+            yield State.clear_mensajes_delay
             return
         if self.area_responsable == "Otros" and not self.area_otro:
             self.solicitud_mensaje = "Por favor indica el área responsable cuando eliges Otros."
+            yield State.clear_mensajes_delay
             return
         # Verificar aceptación de política de tratamiento de datos
         if not self.acepta_politica_solicitud:
             self.solicitud_mensaje = "Debes aceptar la Política de Tratamiento de Datos Personales antes de enviar."
+            yield State.clear_mensajes_delay
             return
 
         documentos_guardados: list[str] = []
@@ -3436,7 +3523,21 @@ Sistema PQRS
             documentos_guardados.append(basename)
             documento_basenames_guardados.append(basename)
 
-        if self.documentos:
+        if files:
+            try:
+                os.makedirs(UPLOAD_DIR, exist_ok=True)
+                os.makedirs(WEB_UPLOAD_DIR, exist_ok=True)
+                for item in files:
+                    if hasattr(item, "read"):
+                        upload_data = await item.read()
+                        guardar_archivo({"name": getattr(item, "filename", getattr(item, "name", "adjunto")), "content": upload_data})
+                    else:
+                        guardar_archivo(item)
+            except Exception as e:
+                self.solicitud_mensaje = f"Error guardando documento: {e}"
+                yield State.clear_mensajes_delay
+                return
+        elif self.documentos:
             try:
                 os.makedirs(UPLOAD_DIR, exist_ok=True)
                 os.makedirs(WEB_UPLOAD_DIR, exist_ok=True)
@@ -3444,6 +3545,7 @@ Sistema PQRS
                     guardar_archivo(item)
             except Exception as e:
                 self.solicitud_mensaje = f"Error guardando documento: {e}"
+                yield State.clear_mensajes_delay
                 return
         elif self.documento:
             try:
@@ -3453,14 +3555,16 @@ Sistema PQRS
             except Exception as e:
 
                 self.solicitud_mensaje = f"Error guardando documento: {e}"
+                yield State.clear_mensajes_delay
                 return
 
         if self.editar_solicitud_id:
             try:
-                with Session(engine) as session:
+                with rx.session() as session:
                     solicitud_obj = session.get(Solicitud, self.editar_solicitud_id)
                     if not solicitud_obj:
                         self.solicitud_mensaje = "Solicitud no encontrada para editar."
+                        yield State.clear_mensajes_delay
                         return
                     # Obtener persona_vulnerable del usuario autenticado
                     usuario = session.get(Usuario, self.id_usuario_num)
@@ -3494,15 +3598,17 @@ Sistema PQRS
                             correos_adicionales=None
                         )
                 except Exception:
-                    pass
+                    logger.exception("Error enviando notificación de cambio de estado para solicitud %s", getattr(solicitud_obj, 'id', None))
 
                 self.solicitud_mensaje = "Solicitud actualizada con éxito."
                 self.editar_solicitud_id = 0
                 self.limpiar_formulario_solicitud(keep_message=True)
                 self.cargar_solicitudes()
+                yield State.clear_mensajes_delay
                 return
             except Exception as e:
                 self.solicitud_mensaje = f"Error actualizando solicitud: {e}"
+                yield State.clear_mensajes_delay
                 return
 
         try:
@@ -3528,6 +3634,22 @@ Sistema PQRS
                 )
                 session.add(solicitud_obj)
                 session.commit()
+                # Crear registro de historial inicial persistente si la solicitud incluye adjuntos
+                try:
+                    session.refresh(solicitud_obj)
+                    if documentos_guardados:
+                        h_init = SolicitudEstadoHistorial(
+                            solicitud_id=solicitud_obj.id,
+                            estado_anterior="",
+                            estado_nuevo=solicitud_obj.estado or "Radicada",
+                            fecha_cambio=solicitud_obj.fecha or datetime.now(),
+                            observaciones="Solicitud inicial (documentos adjuntos)",
+                            documento_adjunto=", ".join(documentos_guardados) if documentos_guardados else None,
+                        )
+                        session.add(h_init)
+                        session.commit()
+                except Exception:
+                    logger.exception("Error creando historial inicial persistente para solicitud %s", getattr(solicitud_obj, 'id', None))
                 radicado_generado = solicitud_obj.radicado
             # Enviar notificación de creación (si hay correo disponible)
             try:
@@ -3545,13 +3667,19 @@ Sistema PQRS
                         correos_adicionales=None
                     )
             except Exception:
-                pass
+                logger.exception("Error enviando notificación de creación de solicitud para %s", getattr(solicitud_obj, 'id', None))
 
-            self.solicitud_mensaje = f"�?? Solicitud enviada con éxito. Radicado: {radicado_generado}"
+            self.solicitud_mensaje = f"✅ Solicitud enviada con exito. Radicado: {radicado_generado}"
             self.limpiar_formulario_solicitud(keep_message=True)
             self.cargar_solicitudes()
+            yield rx.clear_selected_files("upload_solicitud")
+            yield rx.call_script("if(window.__pqrsClear) window.__pqrsClear();")
+            yield State.clear_mensajes_delay
         except Exception as e:
             self.solicitud_mensaje = f"Error guardando solicitud: {e}"
+            yield rx.clear_selected_files("upload_solicitud")
+            yield rx.call_script("if(window.__pqrsClear) window.__pqrsClear();")
+            yield State.clear_mensajes_delay
 
     def editar_solicitud(self, solicitud_id: int):
         try:
@@ -3653,7 +3781,24 @@ Sistema PQRS
                             doc = match.group(1).strip()
                             obs_clean = re.sub(r"\s*\[DOCUMENTO(?: ADJUNTO)?:[^\]]+\]", "", obs_clean).strip()
 
+                    # Construir lista completa de adjuntos (soporta lista separada por comas)
+                    documento_adjuntos_list = []
+                    if doc:
+                        parts = [p.strip() for p in str(doc).split(",") if p and str(p).strip()]
+                        for p in parts:
+                            try:
+                                m = construir_metadata_adjunto(p)
+                                documento_adjuntos_list.append({
+                                    "basename": m.get("basename", str(p)),
+                                    "href": m.get("href", ""),
+                                    "preview_src": m.get("preview_src", ""),
+                                    "existe": bool(m.get("existe", False)),
+                                })
+                            except Exception:
+                                logger.exception("Error construyendo metadata para adjunto del historial: %s", p)
+
                     doc_meta = construir_metadata_adjunto(doc) if doc else {}
+
                     return {
                         "estado_anterior": h.estado_anterior,
                         "estado_nuevo": h.estado_nuevo,
@@ -3664,15 +3809,62 @@ Sistema PQRS
                         "documento_href": doc_meta.get("href", ""),
                         "documento_preview_src": doc_meta.get("preview_src", ""),
                         "documento_existe": doc_meta.get("existe", False),
+                        "documento_adjuntos": documento_adjuntos_list,
                     }
                 self.historial_solicitud = [_parse_historial(h) for h in items]
+                # Añadir una entrada inicial basada en los adjuntos de la solicitud (si existen)
+                try:
+                    sol = s.get(Solicitud, solicitud_id)
+                    if sol and (sol.documento or sol.documento_basename):
+                        documento_basenames = []
+                        if sol.documento_basename:
+                            try:
+                                parsed_names = json.loads(sol.documento_basename)
+                                documento_basenames = parsed_names if isinstance(parsed_names, list) else [parsed_names]
+                            except Exception:
+                                documento_basenames = [sol.documento_basename]
+
+                        documento_paths = []
+                        if sol.documento:
+                            try:
+                                parsed_paths = json.loads(sol.documento)
+                                documento_paths = parsed_paths if isinstance(parsed_paths, list) else [parsed_paths]
+                            except Exception:
+                                documento_paths = [sol.documento]
+
+                        nombres = [os.path.basename(p) for p in documento_paths] if documento_paths else documento_basenames
+                        primero = nombres[0] if nombres else ""
+                        if primero:
+                            doc_meta = construir_metadata_adjunto(primero)
+                            existe = bool(doc_meta.get("basename") or primero)
+                            # Evitar duplicados: si ya hay una entrada en el historial con este basename, no la añadimos
+                            ya_presente = any(
+                                str(h.get("documento_adjunto", "")) == (doc_meta.get("basename") or primero)
+                                for h in self.historial_solicitud
+                            )
+                            if not ya_presente:
+                                entrada_inicial = {
+                                    "estado_anterior": "",
+                                    "estado_nuevo": sol.estado or "Radicada",
+                                    "fecha_cambio": sol.fecha.strftime("%d/%m/%Y %H:%M") if isinstance(sol.fecha, datetime) else str(sol.fecha),
+                                    "observaciones": "Solicitud inicial (documento adjunto)",
+                                    "area_asignada": "",
+                                    "documento_adjunto": doc_meta.get("basename", primero),
+                                    "documento_href": doc_meta.get("href", ""),
+                                    "documento_preview_src": doc_meta.get("preview_src", ""),
+                                    "documento_existe": bool(doc_meta.get("existe", False)),
+                                }
+                                # Añadir al final (será la entrada más antigua)
+                                self.historial_solicitud.append(entrada_inicial)
+                except Exception:
+                    logger.exception("Error cargando historial para solicitud %s", solicitud_id)
             if session:
                 _query(session)
             else:
                 with Session(engine) as s:
                     _query(s)
         except Exception as e:
-            print(f"Error cargando historial: {e}")
+            logger.exception("Error cargando historial: %s", e)
             self.historial_solicitud = []
 
     def enviar_calificacion(self):
@@ -7121,7 +7313,11 @@ def ui_fila_adjunto_respuesta_modal(doc) -> rx.Component:
                 border_radius="10px",
                 flex_shrink="0",
             ),
-            rx.icon("file-check-2", size=18, color="#2563eb"),
+            rx.cond(
+                doc.get("es_pdf") & (doc.get("href") != ""),
+                rx.el.object(data=doc["href"], type="application/pdf", width="56px", height="56px"),
+                rx.icon("file-check-2", size=18, color="#2563eb"),
+            ),
         ),
         rx.text(
             doc["nombre"],
@@ -7150,8 +7346,10 @@ def ui_fila_adjunto_respuesta_modal(doc) -> rx.Component:
 
 def ui_tarjeta_adjunto_historial(h) -> rx.Component:
     """Adjunto en una entrada de bitácora / historial."""
+    # Generamos siempre el href como /uploads/<basename> para que funcione aunque
+    # _resolver_ruta_archivo_existente no encuentre la ruta absoluta en tiempo de carga.
     return rx.cond(
-        h["documento_existe"],
+        h["documento_adjunto"] != "",
         rx.vstack(
             rx.cond(
                 h["documento_preview_src"] != "",
@@ -7159,25 +7357,32 @@ def ui_tarjeta_adjunto_historial(h) -> rx.Component:
                     src=h["documento_preview_src"],
                     alt=h["documento_adjunto"],
                     width="100%",
-                    max_height="80px",
+                    max_height="120px",
                     object_fit="contain",
                     border_radius="md",
                     border="1px solid #bfdbfe",
                     margin_top="1",
                 ),
-                rx.box(),
+                rx.cond(
+                    h["documento_href"] != "",
+                    rx.box(),
+                    rx.box(
+                        rx.icon("file", size=28, color="#3b82f6"),
+                        display="flex", align_items="center",
+                    ),
+                ),
             ),
-            ui_boton_descargar_adjunto(h["documento_href"], h["documento_adjunto"]),
+            # Mostrar botón de descarga: si documento_href está vacío, construir uno con basename
+            rx.cond(
+                h["documento_href"] != "",
+                ui_boton_descargar_adjunto(h["documento_href"], h["documento_adjunto"]),
+                ui_boton_descargar_adjunto(f"/uploads/{h['documento_adjunto']}", h["documento_adjunto"]),
+            ),
             spacing="1",
             width="100%",
             align_items="start",
         ),
-        rx.text(
-            "El archivo ya no está en el servidor",
-            font_size="2xs",
-            color="#ef4444",
-            margin_top="1",
-        ),
+        rx.box(),
     )
 
 
@@ -8191,6 +8396,15 @@ def funcionario_dashboard() -> rx.Component:
                                                                 on_drop=State.set_respuesta_documento,
                                                             ),
                                                             rx.cond(
+                                                                rx.selected_files("upload_respuesta").length() > 0,
+                                                                rx.vstack(
+                                                                    rx.foreach(
+                                                                        rx.selected_files("upload_respuesta"),
+                                                                        lambda fname: rx.text(fname, font_size="xs", color=subtext_color),
+                                                                    ),
+                                                                ),
+                                                            ),
+                                                            rx.cond(
                                                                 State.respuesta_documento_error != "",
                                                                 rx.box(
                                                                     rx.hstack(
@@ -8521,79 +8735,119 @@ def funcionario_cerradas_dashboard() -> rx.Component:
                                     State.solicitudes_cerradas_lista,
                                     lambda solicitud: rx.box(
                                         rx.vstack(
-                                                    rx.box(
-                                                        rx.hstack(
-                                                            rx.badge(solicitud["radicado"], color_scheme="gray", variant="solid", radius="large"),
-                                                            rx.spacer(),
-                                                            rx.cond(
-                                                                solicitud.get("calificacion_servicio") != None,
-                                                                rx.hstack(
-                                                                    rx.icon("star", color="#f59e0b", size=14),
-                                                                    rx.text(solicitud.get("calificacion_servicio", ""), font_weight="bold", color="#f59e0b", font_size="sm"),
-                                                                    spacing="1", align_items="center", bg=rx.color_mode_cond(light="rgba(245, 158, 11, 0.15)", dark="rgba(245, 158, 11, 0.2)"), padding="2px 8px", border_radius="full"
-                                                                )
-                                                            ),
-                                                            rx.badge("Cerrada", color_scheme="green", variant="soft", size="2", radius="full"),
-                                                            width="100%",
-                                                            align_items="center",
+                                            # Header: Radicado + Badge de estado
+                                            rx.box(
+                                                rx.hstack(
+                                                    rx.hstack(
+                                                        rx.icon("hash", size=12, color=rx.color_mode_cond(light="#64748b", dark="#7ea8c9")),
+                                                        rx.text(
+                                                            solicitud['radicado'],
+                                                            font_size="xs",
+                                                            font_weight="700",
+                                                            color=rx.color_mode_cond(light="#64748b", dark="#7ea8c9"),
+                                                            letter_spacing="0.02em",
                                                         ),
-                                                        p="4",
-                                                        width="100%",
-                                                        bg=rx.color_mode_cond(
-                                                            light="linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)",
-                                                            dark="linear-gradient(135deg, rgba(16,185,129,0.20) 0%, rgba(16,185,129,0.08) 100%)",
-                                                        ),
-                                                        border_bottom=rx.color_mode_cond(light="1px solid #a7f3d0", dark="1px solid #334155"),
-                                                        border_top_left_radius="2xl",
-                                                        border_top_right_radius="2xl",
-                                            ),
-                                                    rx.vstack(
-                                                        rx.heading(solicitud["asunto"], size="5", color=text_color, font_weight="bold", line_height="1.25", style={"display": "-webkit-box", "WebkitLineClamp": "2", "WebkitBoxOrient": "vertical", "overflow": "hidden"}),
-                                                        rx.text(solicitud["descripcion"], font_size="sm", color=subtext_color, style={"display": "-webkit-box", "WebkitLineClamp": "3", "WebkitBoxOrient": "vertical", "overflow": "hidden"}, min_height="62px"),
-                                                        rx.hstack(
-                                                            rx.badge(solicitud["tipo_solicitud"], variant="soft", color_scheme="purple", radius="full"),
-                                                            rx.badge(solicitud.get("area_responsable", "No asignada"), variant="soft", color_scheme="cyan", radius="full"),
-                                                            spacing="2",
-                                                            width="100%",
-                                                            flex_wrap="wrap",
-                                                        ),
-                                                        rx.spacer(),
-                                                        rx.hstack(
-                                                            rx.button(rx.icon("history", size=16), "Historial", on_click=lambda _event, id=solicitud["id"]: State.abrir_historial(id), size="2", variant="soft", color_scheme="gray", radius="full", _hover={"transform": "translateY(-1px)"}, transition="all 0.2s ease"),
-                                                            rx.spacer(),
-                                                            rx.button("Reabrir / Estado", on_click=lambda _event, id=solicitud["id"], estado=solicitud["estado"]: State.abrir_editor_estado(id, estado), size="2", color_scheme="blue", variant="solid", radius="full", _hover={"transform": "translateY(-1px)", "box_shadow": "0 10px 20px -14px rgba(59,130,246,0.6)"}, transition="all 0.2s ease"),
-                                                            width="100%",
-                                                            align_items="center",
-                                                        ),
-                                                        spacing="3",
-                                                        align_items="start",
+                                                        spacing="1", align_items="center",
+                                                    ),
+                                                    rx.spacer(),
+                                                    rx.badge(
+                                                        rx.icon("circle-check", size=11),
+                                                        solicitud['estado'],
+                                                        color_scheme="green",
+                                                        variant="soft", size="1", radius="full",
+                                                    ),
+                                                    width="100%", align_items="center",
+                                                ),
+                                                padding="12px 16px",
+                                                border_bottom=rx.color_mode_cond(light="1px solid #f1f5f9", dark="1px solid #1e3a5f"),
                                                 width="100%",
-                                                        height="100%",
-                                                        p="4",
                                             ),
-                                                    spacing="0",
-                                            align_items="start",
-                                            width="100%",
-                                                    height="100%",
+                                            # Cuerpo: Asunto + Descripción
+                                            rx.box(
+                                                rx.vstack(
+                                                    rx.text(
+                                                        solicitud['asunto'],
+                                                        font_size="sm",
+                                                        font_weight="700",
+                                                        color=rx.color_mode_cond(light="#0f172a", dark="#f0f6ff"),
+                                                        line_height="1.35",
+                                                        style={"display": "-webkit-box", "WebkitLineClamp": "2", "WebkitBoxOrient": "vertical", "overflow": "hidden"},
+                                                    ),
+                                                    rx.text(
+                                                        solicitud['descripcion'],
+                                                        font_size="xs",
+                                                        color=rx.color_mode_cond(light="#64748b", dark="#7ea8c9"),
+                                                        line_height="1.5",
+                                                        style={"display": "-webkit-box", "WebkitLineClamp": "3", "WebkitBoxOrient": "vertical", "overflow": "hidden"},
+                                                        min_height="54px",
+                                                    ),
+                                                    spacing="2", align_items="start", width="100%",
+                                                ),
+                                                padding="12px 16px",
+                                                width="100%",
+                                            ),
+                                            # Footer: Etiquetas + Botones
+                                            rx.box(
+                                                rx.vstack(
+                                                    rx.hstack(
+                                                        rx.badge(
+                                                            rx.icon("layers", size=11),
+                                                            solicitud['tipo_solicitud'],
+                                                            variant="soft", color_scheme="purple", radius="full", size="1",
+                                                        ),
+                                                        rx.badge(
+                                                            rx.icon("users", size=11),
+                                                            solicitud.get('area_responsable', 'Sin asignar'),
+                                                            variant="soft", color_scheme="cyan", radius="full", size="1",
+                                                        ),
+                                                        spacing="2", width="100%", flex_wrap="wrap",
+                                                    ),
+                                                    rx.hstack(
+                                                        rx.button(
+                                                            rx.icon("history", size=14), "Historial",
+                                                            on_click=lambda _event, id=solicitud['id']: State.abrir_historial(id),
+                                                            size="1", variant="soft", color_scheme="gray", radius="full",
+                                                            _hover={"transform": "translateY(-1px)"}, transition="all 0.2s ease",
+                                                        ),
+                                                        rx.button(
+                                                            rx.icon("refresh-cw", size=14), "Estado",
+                                                            on_click=lambda _event, id=solicitud['id'], estado=solicitud['estado']: State.abrir_editor_estado(id, estado),
+                                                            size="1", color_scheme="blue", variant="solid", radius="full",
+                                                            _hover={"transform": "translateY(-1px)"}, transition="all 0.2s ease",
+                                                        ),
+                                                        rx.button(
+                                                            rx.icon("network", size=14), "Área",
+                                                            on_click=lambda _event, id=solicitud['id'], area=solicitud.get('area_responsable', ''): State.abrir_asignar_area(id, area),
+                                                            size="1", color_scheme="green", variant="soft", radius="full",
+                                                            _hover={"transform": "translateY(-1px)"}, transition="all 0.2s ease",
+                                                        ),
+                                                        spacing="2", width="100%",
+                                                    ),
+                                                    spacing="3", width="100%",
+                                                ),
+                                                padding="12px 16px",
+                                                border_top=rx.color_mode_cond(light="1px solid #f1f5f9", dark="1px solid #1e3a5f"),
+                                                bg=rx.color_mode_cond(light="#f8fafc", dark="#0b1120"),
+                                                border_bottom_left_radius="14px",
+                                                border_bottom_right_radius="14px",
+                                                width="100%",
+                                            ),
+                                            spacing="0", align_items="start", width="100%",
                                         ),
-                                        bg=rx.color_mode_cond(light="rgba(250,255,251,0.96)", dark="rgba(15,23,42,0.9)"),
+                                        bg=rx.color_mode_cond(light="#ffffff", dark="#0f1e35"),
                                         border=card_border,
-                                                border_radius="2xl",
-                                                width="100%",
-                                                max_width="380px",
-                                                margin_x="auto",
-                                                margin_bottom="6",
-                                                min_height="340px",
-                                                position="relative",
-                                                overflow="hidden",
-                                                box_shadow="0 16px 28px -14px rgba(0,0,0,0.16)",
-                                                _hover={"transform": "translateY(-6px)", "box_shadow": "0 24px 38px -18px rgba(16, 185, 129, 0.28)"},
-                                                transition="all 0.25s ease",
+                                        border_top="3px solid #10b981",
+                                        border_radius="14px",
+                                        width="100%",
+                                        overflow="hidden",
+                                        box_shadow=rx.color_mode_cond(light="0 1px 3px rgba(0,0,0,0.06)", dark="0 2px 12px rgba(0,0,0,0.3)"),
+                                        _hover={"transform": "translateY(-4px)", "box_shadow": rx.color_mode_cond(light="0 8px 24px rgba(37,99,235,0.12)", dark="0 8px 24px rgba(0,0,0,0.5)")},
+                                        transition="all 0.22s ease",
                                     ),
                                 ),
-                                        display="grid",
-                                        grid_template_columns=rx.breakpoints(initial="repeat(1, minmax(0, 1fr))", md="repeat(2, minmax(0, 1fr))", lg="repeat(3, minmax(0, 1fr))"),
-                                gap="6",
+                                display="grid",
+                                grid_template_columns=rx.breakpoints(initial="repeat(1, minmax(0, 1fr))", md="repeat(2, minmax(0, 1fr))", lg="repeat(3, minmax(0, 1fr))"),
+                                gap="38px",
                                 width="100%",
                             ),
                             rx.center(
@@ -8788,6 +9042,16 @@ def funcionario_cerradas_dashboard() -> rx.Component:
                                         rx.foreach(
                                             State.historial_estados,
                                             lambda evento: rx.box(
+                                                # Log to browser console whether this event has multimedia/comments
+                                                rx.hstack(
+                                                    rx.text("DEBUG:", font_size="xs", color=subtext_color),
+                                                    rx.text(evento["nuevo"], font_size="xs"),
+                                                    rx.text("doc_exists:", font_size="xs", color=subtext_color),
+                                                    rx.text(rx.cond(evento["documento_existe"], "Sí", "No"), font_size="xs"),
+                                                    rx.text("comentarios:", font_size="xs", color=subtext_color),
+                                                    rx.text(rx.cond(evento["obs"] != "", "Con comentario", "Sin comentarios"), font_size="xs"),
+                                                    spacing="3", align_items="center"
+                                                ),
                                                 rx.hstack(
                                                     rx.box(rx.icon("git-commit-horizontal", size=20, color="#10b981"), p="2", bg="rgba(16, 185, 129, 0.1)", border_radius="full"),
                                                     rx.vstack(
@@ -9017,7 +9281,7 @@ window.__pqrsUpload = window.__pqrsUpload || (function(){
         let   list = [];
  
         const zone  = root.querySelector('[data-zone]');
-        const inp   = root.querySelector('[data-inp]');
+        const inp   = root.querySelector('[data-inp]') || root.querySelector('input[type="file"]');
         const lbl   = root.querySelector('[data-lbl]');
         const meta  = root.querySelector('[data-meta]');
         const barW  = root.querySelector('[data-barw]');
@@ -9078,7 +9342,7 @@ window.__pqrsUpload = window.__pqrsUpload || (function(){
                         f.name+' <em style="color:#64748b;font-style:normal;">('+fmt(f.size)+')</em>'+
                     '</span>'+
                     '<button type="button" style="background:none;border:none;cursor:pointer;'+
-                    'color:#ef4444;font-size:14px;padding:2px 6px;" data-i="'+i+'">�??</button>';
+                    'color:#ef4444;font-size:14px;padding:2px 6px;" data-i="'+i+'">✖</button>';
                 rows.appendChild(d);
             });
             rows.querySelectorAll('[data-i]').forEach(function(btn){
@@ -9150,6 +9414,16 @@ window.__pqrsUpload = window.__pqrsUpload || (function(){
         });
     }
  
+    window.__pqrsClear = function() {
+        document.querySelectorAll('[data-pqrs-upload]').forEach(function(root) {
+            const inp = root.querySelector('[data-inp]') || root.querySelector('input[type="file"]');
+            if (inp) {
+                inp.value = '';
+                inp.dispatchEvent(new Event('change'));
+            }
+        });
+    };
+
     // observar DOM para inicializar cuando el widget aparezca
     const obs=new MutationObserver(function(){
         document.querySelectorAll('[data-pqrs-upload]').forEach(init);
@@ -9185,11 +9459,14 @@ window.__pqrsUpload = window.__pqrsUpload || (function(){
                                         ),
                                         style={"display":"flex","alignItems":"center","gap":"12px"},
                                     ),
-                                    rx.el.input(
-                                        data_inp=True,
-                                        type="file",
-                                        accept="application/pdf,image/png,image/jpeg",
+                                    rx.upload(
+                                        id="upload_solicitud",
                                         multiple=True,
+                                        accept={
+                                            "application/pdf": [".pdf"],
+                                            "image/png": [".png"],
+                                            "image/jpeg": [".jpg", ".jpeg"]
+                                        },
                                         style={
                                             "position":"absolute","inset":"0",
                                             "width":"100%","height":"100%",
@@ -9298,7 +9575,7 @@ window.__pqrsUpload = window.__pqrsUpload || (function(){
                             rx.text("Enviar Solicitud", font_size="15px", font_weight="600"),
                             spacing="2",
                         ),
-                        on_click=State.crear_solicitud,
+                        on_click=State.crear_solicitud(rx.upload_files(upload_id="upload_solicitud")),
                         width="100%",
                         height="48px",
                         bg=rx.cond(
@@ -11414,7 +11691,7 @@ def ayuda_funcionario_page() -> rx.Component:
 app = rx.App()
 app.add_page(index, route="/", title="Inicio - Sistema PQRS", on_load=State.redirigir_si_autenticado)
 app.add_page(registro_page, route="/registro", title="Registro de Ciudadano", on_load=State.redirigir_si_autenticado)
-app.add_page(registro_funcionario_page, route="/registro-funcionario", title="Registro de Funcionario", on_load=State.redirigir_si_autenticado)
+app.add_page(registro_funcionario_page, route="/registro-funcionario", title="Registro de Funcionario")
 app.add_page(login_page, route="/login", title="Iniciar Sesión", on_load=State.redirigir_si_autenticado)
 app.add_page(solicitudes_page, route="/solicitudes", title="Nueva Solicitud PQRS")
 app.add_page(change_password_page, route="/cambiar-contrasena", title="Cambiar Contraseña")
