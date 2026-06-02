@@ -792,6 +792,34 @@ def generar_excel_filtrado_con_grafica(
 
 # quitar prints de prueba
 
+class AdjuntoMeta(rx.Base):
+    documento_adjunto: str
+    documento_href: str
+    documento_preview_src: str
+    documento_existe: bool
+
+class HistorialEvento(rx.Base):
+    fecha: str
+    anterior: str
+    nuevo: str
+    obs: str
+    documento_adjunto: str
+    documento_href: str
+    documento_preview_src: str
+    documento_existe: bool
+    adjuntos: list[AdjuntoMeta]
+class HistorialSolicitudEvento(rx.Base):
+    estado_anterior: str
+    estado_nuevo: str
+    fecha_cambio: str
+    observaciones: str
+    area_asignada: str
+    documento_adjunto: str
+    documento_href: str
+    documento_preview_src: str
+    documento_existe: bool
+    adjuntos: list[AdjuntoMeta]
+
 class State(rx.State):
     # --- Modal de Vencimiento de Reportes ---
     vencimiento_modal_abierto: bool = False
@@ -917,7 +945,7 @@ class State(rx.State):
     # --- Historial de estados ---
     historial_modal_abierto: bool = False
     historial_solicitud_id: int = 0
-    historial_estados: list[dict[str, Any]] = []
+    historial_estados: list[HistorialEvento] = []
 
     def abrir_historial(self, solicitud_id: int):
         """Carga el historial de estados de una solicitud y abre el modal."""
@@ -954,26 +982,25 @@ class State(rx.State):
                     parts = [p.strip() for p in doc.split(",") if p.strip()]
                     for p in parts:
                         m = construir_metadata_adjunto(p)
-                        adjuntos_metas.append({
-                            "documento_adjunto": m.get("basename", p),
-                            "documento_href": m.get("href", ""),
-                            "documento_preview_src": m.get("preview_src", ""),
-                            "documento_existe": bool(m.get("existe", False)),
-                        })
-                
-                first_meta = adjuntos_metas[0] if adjuntos_metas else {}
+                        adjuntos_metas.append(AdjuntoMeta(
+                            documento_adjunto=str(m.get("basename", p)),
+                            documento_href=str(m.get("href", "")),
+                            documento_preview_src=str(m.get("preview_src", "")),
+                            documento_existe=bool(m.get("existe", False)),
+                        ))                
+                first_meta = adjuntos_metas[0] if adjuntos_metas else None
                 estados.append(
-                    {
-                        "fecha": h.fecha_cambio.strftime("%Y-%m-%d %H:%M"),
-                        "anterior": h.estado_anterior,
-                        "nuevo": h.estado_nuevo,
-                        "obs": obs_raw,
-                        "documento_adjunto": first_meta.get("documento_adjunto", ""),
-                        "documento_href": first_meta.get("documento_href", ""),
-                        "documento_preview_src": first_meta.get("documento_preview_src", ""),
-                        "documento_existe": first_meta.get("documento_existe", False),
-                        "adjuntos": adjuntos_metas,
-                    }
+                    HistorialEvento(
+                        fecha=h.fecha_cambio.strftime("%Y-%m-%d %H:%M"),
+                        anterior=str(h.estado_anterior or ""),
+                        nuevo=str(h.estado_nuevo or ""),
+                        obs=str(obs_raw),
+                        documento_adjunto=str(first_meta.documento_adjunto if first_meta else ""),
+                        documento_href=str(first_meta.documento_href if first_meta else ""),
+                        documento_preview_src=str(first_meta.documento_preview_src if first_meta else ""),
+                        documento_existe=bool(first_meta.documento_existe if first_meta else False),
+                        adjuntos=adjuntos_metas,
+                    )
                 )
             # Prepend main solicitud info (multimedia / comentarios) as the first evento
             if main:
@@ -982,25 +1009,25 @@ class State(rx.State):
                 if isinstance(docs, list):
                     for d in docs:
                         if isinstance(d, dict):
-                            adjuntos_metas.append({
-                                "documento_adjunto": d.get("basename", ""),
-                                "documento_href": d.get("href", ""),
-                                "documento_preview_src": d.get("preview_src", ""),
-                                "documento_existe": bool(d.get("existe", False)),
-                            })
-                first_meta = adjuntos_metas[0] if adjuntos_metas else {}
+                            adjuntos_metas.append(AdjuntoMeta(
+                                documento_adjunto=str(d.get("basename", "")),
+                                documento_href=str(d.get("href", "")),
+                                documento_preview_src=str(d.get("preview_src", "")),
+                                documento_existe=bool(d.get("existe", False)),
+                            ))
+                first_meta = adjuntos_metas[0] if adjuntos_metas else None
 
-                main_event = {
-                    "fecha": main.get("fecha") or "",
-                    "anterior": "",
-                    "nuevo": main.get("estado") or "",
-                    "obs": (main.get("descripcion") or "") + ("\nRespuesta: " + (main.get("respuesta") or "") if main.get("respuesta") else ""),
-                    "documento_adjunto": first_meta.get("documento_adjunto", ""),
-                    "documento_href": first_meta.get("documento_href", ""),
-                    "documento_preview_src": first_meta.get("documento_preview_src", ""),
-                    "documento_existe": first_meta.get("documento_existe", False),
-                    "adjuntos": adjuntos_metas,
-                }
+                main_event = HistorialEvento(
+                    fecha=str(main.get("fecha") or ""),
+                    anterior="",
+                    nuevo=str(main.get("estado") or ""),
+                    obs=str(main.get("descripcion") or "") + ("\nRespuesta: " + str(main.get("respuesta") or "") if main.get("respuesta") else ""),
+                    documento_adjunto=str(first_meta.documento_adjunto if first_meta else ""),
+                    documento_href=str(first_meta.documento_href if first_meta else ""),
+                    documento_preview_src=str(first_meta.documento_preview_src if first_meta else ""),
+                    documento_existe=bool(first_meta.documento_existe if first_meta else False),
+                    adjuntos=adjuntos_metas,
+                )
                 self.historial_estados = [main_event] + estados
             else:
                 self.historial_estados = estados
@@ -1161,7 +1188,7 @@ class State(rx.State):
     respuesta_documento_error: str = ""
     respuesta_documentos: list[dict[str, Any]] = []
     # HU9 y HU11: historial, calificación, estados
-    historial_solicitud: list[dict[str, Any]] = []
+    historial_solicitud: list[HistorialSolicitudEvento] = []
     calificacion_seleccionada: int = 0
     calificacion_opcion: str = ""
     comentario_calificacion: str = ""
@@ -2932,6 +2959,21 @@ Sistema PQRS
         if respuesta_meta.get("basename"):
             respuesta_documento_basename = respuesta_meta["basename"]
 
+        respuesta_adjuntos = []
+        if respuesta_documento_basename:
+            for p in respuesta_documento_basename.split(","):
+                p = p.strip()
+                if p:
+                    m = construir_metadata_adjunto(p)
+                    respuesta_adjuntos.append({
+                        "documento_adjunto": str(m.get("basename", p)),
+                        "documento_href": str(m.get("href", "")),
+                        "documento_preview_src": str(m.get("preview_src", "")),
+                        "documento_existe": bool(m.get("existe", False)),
+                        "es_imagen": bool(m.get("es_imagen", False)),
+                        "es_pdf": bool(m.get("es_pdf", False)),
+                    })
+
         result: dict[str, Any] = {
             "id": solicitud.id,
             "radicado": solicitud.radicado,
@@ -2958,6 +3000,7 @@ Sistema PQRS
             "usuario_id": solicitud.usuario_id,
             "calificacion_servicio": solicitud.calificacion_servicio,
             "fecha_consulta_ciudadano": solicitud.fecha_consulta_ciudadano.isoformat() if solicitud.fecha_consulta_ciudadano else None,
+            "respuesta_adjuntos": respuesta_adjuntos,
         }
 
         try:
@@ -2992,6 +3035,25 @@ Sistema PQRS
                     "preview_src": str(doc.get("preview_src", "")),
                     "existe": bool(doc.get("existe", False)),
                 })
+        return resultado
+
+    @rx.var
+    def solicitud_consultada_respuesta_adjuntos(self) -> list[AdjuntoMeta]:
+        docs = self.solicitud_consultada.get("respuesta_adjuntos", [])
+        if not isinstance(docs, list):
+            return []
+
+        resultado = []
+        for doc in docs:
+            if isinstance(doc, dict):
+                resultado.append(AdjuntoMeta(
+                    documento_adjunto=str(doc.get("documento_adjunto", "")),
+                    documento_href=str(doc.get("documento_href", "")),
+                    documento_preview_src=str(doc.get("documento_preview_src", "")),
+                    documento_existe=bool(doc.get("documento_existe", False)),
+                    es_imagen=bool(doc.get("es_imagen", False)),
+                    es_pdf=bool(doc.get("es_pdf", False))
+                ))
         return resultado
 
     @rx.var
@@ -3375,7 +3437,7 @@ Sistema PQRS
             self.contraseña = ""
             self.confirmar_contraseña = ""
             self.show_password = False
-            self.mostrar_toast("¡Inicio de sesión exitoso! Redirigiendo automáticamente...", "success")
+            self.mostrar_toast("Inicio de sesión exitoso! Redirigiendo automaticamente...", "success")
             # Redirigir después de mostrar el toast
             if self.rol_usuario == "funcionario":
                 return rx.redirect("/dashboard-funcionario")
@@ -3788,29 +3850,29 @@ Sistema PQRS
                         for p in parts:
                             try:
                                 m = construir_metadata_adjunto(p)
-                                documento_adjuntos_list.append({
-                                    "basename": m.get("basename", str(p)),
-                                    "href": m.get("href", ""),
-                                    "preview_src": m.get("preview_src", ""),
-                                    "existe": bool(m.get("existe", False)),
-                                })
+                                documento_adjuntos_list.append(AdjuntoMeta(
+                                    documento_adjunto=str(m.get("basename", str(p))),
+                                    documento_href=str(m.get("href", "")),
+                                    documento_preview_src=str(m.get("preview_src", "")),
+                                    documento_existe=bool(m.get("existe", False)),
+                                ))
                             except Exception:
                                 logger.exception("Error construyendo metadata para adjunto del historial: %s", p)
 
                     doc_meta = construir_metadata_adjunto(doc) if doc else {}
 
-                    return {
-                        "estado_anterior": h.estado_anterior,
-                        "estado_nuevo": h.estado_nuevo,
-                        "fecha_cambio": h.fecha_cambio.strftime("%d/%m/%Y %H:%M") if isinstance(h.fecha_cambio, datetime) else str(h.fecha_cambio),
-                        "observaciones": obs_clean,
-                        "area_asignada": area_h,
-                        "documento_adjunto": doc_meta.get("basename", doc),
-                        "documento_href": doc_meta.get("href", ""),
-                        "documento_preview_src": doc_meta.get("preview_src", ""),
-                        "documento_existe": doc_meta.get("existe", False),
-                        "documento_adjuntos": documento_adjuntos_list,
-                    }
+                    return HistorialSolicitudEvento(
+                        estado_anterior=str(h.estado_anterior or ""),
+                        estado_nuevo=str(h.estado_nuevo or ""),
+                        fecha_cambio=h.fecha_cambio.strftime("%d/%m/%Y %H:%M") if isinstance(h.fecha_cambio, datetime) else str(h.fecha_cambio),
+                        observaciones=str(obs_clean or ""),
+                        area_asignada=str(area_h or ""),
+                        documento_adjunto=str(doc_meta.get("basename", doc) or ""),
+                        documento_href=str(doc_meta.get("href", "") or ""),
+                        documento_preview_src=str(doc_meta.get("preview_src", "") or ""),
+                        documento_existe=bool(doc_meta.get("existe", False)),
+                        adjuntos=documento_adjuntos_list,
+                    )
                 self.historial_solicitud = [_parse_historial(h) for h in items]
                 # Añadir una entrada inicial basada en los adjuntos de la solicitud (si existen)
                 try:
@@ -3843,17 +3905,18 @@ Sistema PQRS
                                 for h in self.historial_solicitud
                             )
                             if not ya_presente:
-                                entrada_inicial = {
-                                    "estado_anterior": "",
-                                    "estado_nuevo": sol.estado or "Radicada",
-                                    "fecha_cambio": sol.fecha.strftime("%d/%m/%Y %H:%M") if isinstance(sol.fecha, datetime) else str(sol.fecha),
-                                    "observaciones": "Solicitud inicial (documento adjunto)",
-                                    "area_asignada": "",
-                                    "documento_adjunto": doc_meta.get("basename", primero),
-                                    "documento_href": doc_meta.get("href", ""),
-                                    "documento_preview_src": doc_meta.get("preview_src", ""),
-                                    "documento_existe": bool(doc_meta.get("existe", False)),
-                                }
+                                entrada_inicial = HistorialSolicitudEvento(
+                                    estado_anterior="",
+                                    estado_nuevo=str(sol.estado or "Radicada"),
+                                    fecha_cambio=sol.fecha.strftime("%d/%m/%Y %H:%M") if isinstance(sol.fecha, datetime) else str(sol.fecha),
+                                    observaciones="Solicitud inicial (documento adjunto)",
+                                    area_asignada="",
+                                    documento_adjunto=str(doc_meta.get("basename", primero) or ""),
+                                    documento_href=str(doc_meta.get("href", "") or ""),
+                                    documento_preview_src=str(doc_meta.get("preview_src", "") or ""),
+                                    documento_existe=bool(doc_meta.get("existe", False)),
+                                    adjuntos=[],
+                                )
                                 # Añadir al final (será la entrada más antigua)
                                 self.historial_solicitud.append(entrada_inicial)
                 except Exception:
@@ -7344,41 +7407,47 @@ def ui_fila_adjunto_respuesta_modal(doc) -> rx.Component:
     )
 
 
-def ui_tarjeta_adjunto_historial(h) -> rx.Component:
+def ui_tarjeta_adjunto_historial(h: HistorialEvento) -> rx.Component:
     """Adjunto en una entrada de bitácora / historial."""
-    # Generamos siempre el href como /uploads/<basename> para que funcione aunque
-    # _resolver_ruta_archivo_existente no encuentre la ruta absoluta en tiempo de carga.
     return rx.cond(
-        h["documento_adjunto"] != "",
+        h.adjuntos.length() > 0,
         rx.vstack(
-            rx.cond(
-                h["documento_preview_src"] != "",
-                rx.image(
-                    src=h["documento_preview_src"],
-                    alt=h["documento_adjunto"],
-                    width="100%",
-                    max_height="120px",
-                    object_fit="contain",
-                    border_radius="md",
-                    border="1px solid #bfdbfe",
-                    margin_top="1",
-                ),
-                rx.cond(
-                    h["documento_href"] != "",
-                    rx.box(),
-                    rx.box(
-                        rx.icon("file", size=28, color="#3b82f6"),
-                        display="flex", align_items="center",
+            rx.foreach(
+                h.adjuntos,
+                lambda doc: rx.vstack(
+                    rx.cond(
+                        doc.documento_preview_src != "",
+                        rx.image(
+                            src=doc.documento_preview_src,
+                            alt=doc.documento_adjunto,
+                            width="100%",
+                            max_height="120px",
+                            object_fit="contain",
+                            border_radius="md",
+                            border="1px solid #bfdbfe",
+                            margin_top="1",
+                        ),
+                        rx.cond(
+                            doc.documento_href != "",
+                            rx.box(),
+                            rx.box(
+                                rx.icon("file", size=28, color="#3b82f6"),
+                                display="flex", align_items="center",
+                            ),
+                        ),
                     ),
-                ),
+                    rx.cond(
+                        doc.documento_href != "",
+                        ui_boton_descargar_adjunto(doc.documento_href, doc.documento_adjunto),
+                        ui_boton_descargar_adjunto(f"/uploads/{doc.documento_adjunto}", doc.documento_adjunto),
+                    ),
+                    spacing="1",
+                    width="100%",
+                    align_items="start",
+                    margin_bottom="2",
+                )
             ),
-            # Mostrar botón de descarga: si documento_href está vacío, construir uno con basename
-            rx.cond(
-                h["documento_href"] != "",
-                ui_boton_descargar_adjunto(h["documento_href"], h["documento_adjunto"]),
-                ui_boton_descargar_adjunto(f"/uploads/{h['documento_adjunto']}", h["documento_adjunto"]),
-            ),
-            spacing="1",
+            spacing="2",
             width="100%",
             align_items="start",
         ),
@@ -9920,29 +9989,37 @@ def consultar_estado_page() -> rx.Component:
                                             spacing="2", align_items="center",
                                         ),
                                         rx.cond(
-                                            State.solicitud_consultada_adjunto_respuesta_existe,
+                                            State.solicitud_consultada_respuesta_adjuntos.length() > 0,
                                             rx.vstack(
-                                                rx.cond(
-                                                    State.solicitud_consultada_respuesta_documento_preview_src != "",
-                                                    rx.image(
-                                                        src=State.solicitud_consultada_respuesta_documento_preview_src,
-                                                        alt="Adjunto de respuesta",
+                                                rx.foreach(
+                                                    State.solicitud_consultada_respuesta_adjuntos,
+                                                    lambda doc: rx.vstack(
+                                                        rx.cond(
+                                                            doc.documento_preview_src != "",
+                                                            rx.image(
+                                                                src=doc.documento_preview_src,
+                                                                alt="Adjunto de respuesta",
+                                                                width="100%",
+                                                                max_height="120px",
+                                                                object_fit="contain",
+                                                                border_radius="lg",
+                                                                border="1px solid #a7f3d0",
+                                                            ),
+                                                            rx.box(),
+                                                        ),
+                                                        ui_boton_descargar_adjunto(
+                                                            doc.documento_href,
+                                                            doc.documento_adjunto,
+                                                            color_scheme="green",
+                                                        ),
+                                                        spacing="2",
                                                         width="100%",
-                                                        max_height="120px",
-                                                        object_fit="contain",
-                                                        border_radius="lg",
-                                                        border="1px solid #a7f3d0",
-                                                    ),
-                                                    rx.box(),
-                                                ),
-                                                ui_boton_descargar_adjunto(
-                                                    State.solicitud_consultada_respuesta_documento_href,
-                                                    State.solicitud_consultada_respuesta_documento_basename,
-                                                    color_scheme="green",
+                                                        align_items="start",
+                                                        margin_bottom="2",
+                                                    )
                                                 ),
                                                 spacing="2",
                                                 width="100%",
-                                                align_items="start",
                                             ),
                                             rx.text(
                                                 "El archivo ya no está en el servidor",
@@ -10944,28 +11021,36 @@ def reportes_page() -> rx.Component:
                                         spacing="2",
                                     ),
                                     rx.cond(
-                                        State.solicitud_consultada_adjunto_respuesta_existe,
+                                        State.solicitud_consultada_respuesta_adjuntos.length() > 0,
                                         rx.vstack(
-                                            rx.cond(
-                                                State.solicitud_consultada_respuesta_documento_preview_src != "",
-                                                rx.image(
-                                                    src=State.solicitud_consultada_respuesta_documento_preview_src,
-                                                    alt="Adjunto de respuesta",
+                                            rx.foreach(
+                                                State.solicitud_consultada_respuesta_adjuntos,
+                                                lambda doc: rx.vstack(
+                                                    rx.cond(
+                                                        doc.documento_preview_src != "",
+                                                        rx.image(
+                                                            src=doc.documento_preview_src,
+                                                            alt="Adjunto de respuesta",
+                                                            width="100%",
+                                                            max_height="120px",
+                                                            object_fit="contain",
+                                                            border_radius="lg",
+                                                        ),
+                                                        rx.box(),
+                                                    ),
+                                                    ui_boton_descargar_adjunto(
+                                                        doc.documento_href,
+                                                        doc.documento_adjunto,
+                                                        color_scheme="green",
+                                                    ),
+                                                    spacing="2",
                                                     width="100%",
-                                                    max_height="120px",
-                                                    object_fit="contain",
-                                                    border_radius="lg",
-                                                ),
-                                                rx.box(),
-                                            ),
-                                            ui_boton_descargar_adjunto(
-                                                State.solicitud_consultada_respuesta_documento_href,
-                                                State.solicitud_consultada_respuesta_documento_basename,
-                                                color_scheme="green",
+                                                    align_items="start",
+                                                    margin_bottom="2",
+                                                )
                                             ),
                                             spacing="2",
                                             width="100%",
-                                            align_items="start",
                                         ),
                                         rx.text("El archivo ya no está en el servidor", font_size="xs", color="#ef4444"),
                                     ),

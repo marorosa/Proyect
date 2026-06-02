@@ -398,3 +398,130 @@
 2026-06-02 07:03:49,920 - notificaciones - INFO - [cambio_estado] Correo enviado a hinojosalopez77@gmail.com (SMTP)
 2026-06-02 07:05:36,578 - notificaciones - INFO - Adjuntos al correo: ['C:\\Users\\HinojosaDev\\Downloads\\ADA\\Sft1\\APP\\Proyect\\assets\\uploads\\sd.png', 'C:\\Users\\HinojosaDev\\Downloads\\ADA\\Sft1\\APP\\Proyect\\assets\\uploads\\icon1.png']
 2026-06-02 07:05:58,846 - notificaciones - INFO - [cambio_estado] Correo enviado a hinolopez6@gmail.com (SMTP)
+2026-06-02 07:52:01,677 - alembic.runtime.migration - INFO - Context impl SQLiteImpl.
+2026-06-02 07:52:01,678 - alembic.runtime.migration - INFO - Will assume non-transactional DDL.
+2026-06-02 07:52:01,682 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.schemas
+2026-06-02 07:52:01,682 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.tables
+2026-06-02 07:52:01,682 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.types
+2026-06-02 07:52:01,682 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.constraints
+2026-06-02 07:52:01,682 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.defaults
+2026-06-02 07:52:01,686 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.comments
+2026-06-02 07:55:35,669 - notificaciones - INFO - [cambio_estado] Correo enviado a hinojosalopez77@gmail.com (SMTP)
+2026-06-02 07:56:49,864 - notificaciones - INFO - Adjuntos al correo: ['C:\\Users\\HinojosaDev\\Downloads\\ADA\\Sft1\\APP\\Proyect\\assets\\uploads\\Paradero.png']
+2026-06-02 07:56:56,879 - notificaciones - INFO - [cambio_estado] Correo enviado a hinolopez6@gmail.com (SMTP)
+2026-06-02 07:59:33,478 - notificaciones - INFO - Adjuntos al correo: ['C:\\Users\\HinojosaDev\\Downloads\\ADA\\Sft1\\APP\\Proyect\\assets\\uploads\\Paradero.png', 'C:\\Users\\HinojosaDev\\Downloads\\ADA\\Sft1\\APP\\Proyect\\assets\\uploads\\logo.png']
+2026-06-02 07:59:42,232 - notificaciones - INFO - [cambio_estado] Correo enviado a hinolopez6@gmail.com (SMTP)
+2026-06-02 08:01:05,089 - autenticacion.autenticacion - ERROR - Error cargando historial: 8 validation errors for HistorialSolicitudEvento
+adjuntos -> 0 -> documento_adjunto
+  field required (type=value_error.missing)
+adjuntos -> 0 -> documento_href
+  field required (type=value_error.missing)
+adjuntos -> 0 -> documento_preview_src
+  field required (type=value_error.missing)
+adjuntos -> 0 -> documento_existe
+  field required (type=value_error.missing)
+adjuntos -> 1 -> documento_adjunto
+  field required (type=value_error.missing)
+adjuntos -> 1 -> documento_href
+  field required (type=value_error.missing)
+adjuntos -> 1 -> documento_preview_src
+  field required (type=value_error.missing)
+adjuntos -> 1 -> documento_existe
+  field required (type=value_error.missing)
+Traceback (most recent call last):
+  File "C:\Users\HinojosaDev\Downloads\ADA\Sft1\APP\Proyect\autenticacion\autenticacion.py", line 3929, in cargar_historial_solicitud
+    _query(session)
+  File "C:\Users\HinojosaDev\Downloads\ADA\Sft1\APP\Proyect\autenticacion\autenticacion.py", line 3880, in _query
+    self.historial_solicitud = [_parse_historial(h) for h in items]
+                                ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\HinojosaDev\Downloads\ADA\Sft1\APP\Proyect\autenticacion\autenticacion.py", line 3868, in _parse_historial
+    return HistorialSolicitudEvento(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\HinojosaDev\Downloads\ADA\Sft1\APP\Proyect\.venv\Lib\site-packages\pydantic\v1\main.py", line 364, in __init__
+    raise validation_error
+pydantic.v1.error_wrappers.ValidationError: 8 validation errors for HistorialSolicitudEvento
+adjuntos -> 0 -> documento_adjunto
+  field required (type=value_error.missing)
+adjuntos -> 0 -> documento_href
+  field required (type=value_error.missing)
+adjuntos -> 0 -> documento_preview_src
+  field required (type=value_error.missing)
+adjuntos -> 0 -> documento_existe
+  field required (type=value_error.missing)
+adjuntos -> 1 -> documento_adjunto
+  field required (type=value_error.missing)
+adjuntos -> 1 -> documento_href
+  field required (type=value_error.missing)
+adjuntos -> 1 -> documento_preview_src
+  field required (type=value_error.missing)
+adjuntos -> 1 -> documento_existe
+  field required (type=value_error.missing)
+2026-06-02 08:02:01,282 - autenticacion.autenticacion - ERROR - Error cargando historial: 8 validation errors for HistorialSolicitudEvento
+adjuntos -> 0 -> documento_adjunto
+  field required (type=value_error.missing)
+adjuntos -> 0 -> documento_href
+  field required (type=value_error.missing)
+adjuntos -> 0 -> documento_preview_src
+  field required (type=value_error.missing)
+adjuntos -> 0 -> documento_existe
+  field required (type=value_error.missing)
+adjuntos -> 1 -> documento_adjunto
+  field required (type=value_error.missing)
+adjuntos -> 1 -> documento_href
+  field required (type=value_error.missing)
+adjuntos -> 1 -> documento_preview_src
+  field required (type=value_error.missing)
+adjuntos -> 1 -> documento_existe
+  field required (type=value_error.missing)
+Traceback (most recent call last):
+  File "C:\Users\HinojosaDev\Downloads\ADA\Sft1\APP\Proyect\autenticacion\autenticacion.py", line 3929, in cargar_historial_solicitud
+    _query(session)
+  File "C:\Users\HinojosaDev\Downloads\ADA\Sft1\APP\Proyect\autenticacion\autenticacion.py", line 3880, in _query
+    self.historial_solicitud = [_parse_historial(h) for h in items]
+                                ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\HinojosaDev\Downloads\ADA\Sft1\APP\Proyect\autenticacion\autenticacion.py", line 3868, in _parse_historial
+    return HistorialSolicitudEvento(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\HinojosaDev\Downloads\ADA\Sft1\APP\Proyect\.venv\Lib\site-packages\pydantic\v1\main.py", line 364, in __init__
+    raise validation_error
+pydantic.v1.error_wrappers.ValidationError: 8 validation errors for HistorialSolicitudEvento
+adjuntos -> 0 -> documento_adjunto
+  field required (type=value_error.missing)
+adjuntos -> 0 -> documento_href
+  field required (type=value_error.missing)
+adjuntos -> 0 -> documento_preview_src
+  field required (type=value_error.missing)
+adjuntos -> 0 -> documento_existe
+  field required (type=value_error.missing)
+adjuntos -> 1 -> documento_adjunto
+  field required (type=value_error.missing)
+adjuntos -> 1 -> documento_href
+  field required (type=value_error.missing)
+adjuntos -> 1 -> documento_preview_src
+  field required (type=value_error.missing)
+adjuntos -> 1 -> documento_existe
+  field required (type=value_error.missing)
+2026-06-02 08:06:48,447 - alembic.runtime.migration - INFO - Context impl SQLiteImpl.
+2026-06-02 08:06:48,448 - alembic.runtime.migration - INFO - Will assume non-transactional DDL.
+2026-06-02 08:06:48,456 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.schemas
+2026-06-02 08:06:48,458 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.tables
+2026-06-02 08:06:48,458 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.types
+2026-06-02 08:06:48,459 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.constraints
+2026-06-02 08:06:48,459 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.defaults
+2026-06-02 08:06:48,459 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.comments
+2026-06-02 08:10:50,018 - alembic.runtime.migration - INFO - Context impl SQLiteImpl.
+2026-06-02 08:10:50,019 - alembic.runtime.migration - INFO - Will assume non-transactional DDL.
+2026-06-02 08:10:50,024 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.schemas
+2026-06-02 08:10:50,024 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.tables
+2026-06-02 08:10:50,024 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.types
+2026-06-02 08:10:50,024 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.constraints
+2026-06-02 08:10:50,026 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.defaults
+2026-06-02 08:10:50,026 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.comments
+2026-06-02 08:13:06,476 - alembic.runtime.migration - INFO - Context impl SQLiteImpl.
+2026-06-02 08:13:06,477 - alembic.runtime.migration - INFO - Will assume non-transactional DDL.
+2026-06-02 08:13:06,480 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.schemas
+2026-06-02 08:13:06,482 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.tables
+2026-06-02 08:13:06,482 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.types
+2026-06-02 08:13:06,482 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.constraints
+2026-06-02 08:13:06,482 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.defaults
+2026-06-02 08:13:06,482 - alembic.runtime.plugins - INFO - setting up autogenerate plugin alembic.autogenerate.comments
