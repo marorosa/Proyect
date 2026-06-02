@@ -52,7 +52,7 @@ def url_descarga_publica(nombre_archivo: str) -> Optional[str]:
     base = get_app_base_url()
     if not base:
         return None
-    return f"{base}/assets/uploads/{quote(nombre_archivo)}"
+    return f"{base}/uploads/{quote(nombre_archivo)}"
 
 
 def formatear_nota_documento(
@@ -69,7 +69,7 @@ def formatear_nota_documento(
         if os.path.isfile(ruta):
             adjuntos.append(os.path.abspath(ruta))
         else:
-            candidato = Path(__file__).resolve().parent / "assets" / "uploads" / Path(ruta).name
+            candidato = Path(__file__).resolve().parent / "uploaded_files" / Path(ruta).name
             if candidato.is_file():
                 adjuntos.append(str(candidato.resolve()))
 

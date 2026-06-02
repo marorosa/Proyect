@@ -36,7 +36,7 @@ logger = logging.getLogger(__name__)
 
 # Carpeta donde se guardarán los archivos subidos por los usuarios
 BASE_DIR = Path(__file__).resolve().parent.parent
-UPLOAD_DIR = BASE_DIR / "assets" / "uploads"
+UPLOAD_DIR = BASE_DIR / "uploaded_files"
 
 WEB_UPLOAD_DIR = BASE_DIR / ".web" / "public" / "uploads"
 WEB_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
