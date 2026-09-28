@@ -1,5 +1,6 @@
 """Sistema de Gestión de PQRS para Empresas Públicas - Sprint 1: Registro de Ciudadanos"""
 import re
+
 from datetime import datetime, date, timedelta
 import random
 import bcrypt
@@ -11,6 +12,9 @@ import shutil
 from pathlib import Path
 from urllib.parse import quote
 import reflex as rx
+from pydantic import BaseModel
+
+
 from .usuario_model import Usuario, Solicitud
 from .solicitud_estado_historial_model import SolicitudEstadoHistorial
 from sqlmodel import select, SQLModel, create_engine, text, Session
@@ -92,28 +96,75 @@ engine = create_engine(DATABASE_URL, echo=False)
 SQLModel.metadata.create_all(engine)
 
 # Asegura que las columnas necesarias existan en la tabla usuario
+# Asegura que las columnas necesarias existan en la tabla usuario
 with engine.connect() as conn:
-    result = conn.execute(text("PRAGMA table_info('usuario')"))
-    columnas = [row[1] for row in result]
+    if engine.dialect.name == "postgresql":
+        columnas = [
+            row[0]
+            for row in conn.execute(
+                text("""
+                    SELECT column_name
+                    FROM information_schema.columns
+                    WHERE table_name = 'usuario'
+                """)
+            )
+        ]
+    else:
+        columnas = [
+            row[1]
+            for row in conn.execute(text("PRAGMA table_info('usuario')"))
+        ]
+
     if 'etnia' not in columnas:
         conn.execute(text("ALTER TABLE usuario ADD COLUMN etnia TEXT"))
+
     if 'persona_vulnerable' not in columnas:
         conn.execute(text("ALTER TABLE usuario ADD COLUMN persona_vulnerable TEXT"))
+
     if 'acepta_notificaciones' not in columnas:
-        conn.execute(text("ALTER TABLE usuario ADD COLUMN acepta_notificaciones INTEGER DEFAULT 0"))
+        conn.execute(
+            text("ALTER TABLE usuario ADD COLUMN acepta_notificaciones INTEGER DEFAULT 0")
+        )
+
     if 'acepta_politica_datos' not in columnas:
-        conn.execute(text("ALTER TABLE usuario ADD COLUMN acepta_politica_datos INTEGER DEFAULT 0"))
+        conn.execute(
+            text("ALTER TABLE usuario ADD COLUMN acepta_politica_datos INTEGER DEFAULT 0")
+        )
+
     conn.commit()
 
-# Asegura que la columna persona_vulnerable exista en la tabla solicitud cuando se añada al modelo
+
+# Asegura que las columnas necesarias existan en la tabla solicitud
 with engine.connect() as conn:
-    result = conn.execute(text("PRAGMA table_info('solicitud')"))
-    columnas = [row[1] for row in result]
+    if engine.dialect.name == "postgresql":
+        columnas = [
+            row[0]
+            for row in conn.execute(
+                text("""
+                    SELECT column_name
+                    FROM information_schema.columns
+                    WHERE table_name = 'solicitud'
+                """)
+            )
+        ]
+    else:
+        columnas = [
+            row[1]
+            for row in conn.execute(text("PRAGMA table_info('solicitud')"))
+        ]
+
     if 'persona_vulnerable' not in columnas:
-        conn.execute(text("ALTER TABLE solicitud ADD COLUMN persona_vulnerable TEXT"))
+        conn.execute(
+            text("ALTER TABLE solicitud ADD COLUMN persona_vulnerable TEXT")
+        )
+
     if 'fecha_respuesta' not in columnas:
-        conn.execute(text("ALTER TABLE solicitud ADD COLUMN fecha_respuesta TIMESTAMP"))
-    # Backfill: si una solicitud ya está cerrada, usar el último cambio de estado como fecha_respuesta.
+        conn.execute(
+            text("ALTER TABLE solicitud ADD COLUMN fecha_respuesta TIMESTAMP")
+        )
+
+    # Backfill: si una solicitud ya está cerrada,
+    # usar el último cambio de estado como fecha_respuesta.
     try:
         conn.execute(
             text(
@@ -123,17 +174,19 @@ with engine.connect() as conn:
                     SELECT MAX(h.fecha_cambio)
                     FROM solicitudestadohistorial AS h
                     WHERE h.solicitud_id = solicitud.id
-                      AND lower(coalesce(h.estado_nuevo,'')) IN ('cerrada','resuelta','finalizada','respondida')
+                      AND lower(coalesce(h.estado_nuevo,'')) IN
+                          ('cerrada','resuelta','finalizada','respondida')
                 )
                 WHERE fecha_respuesta IS NULL
-                  AND lower(coalesce(estado,'')) IN ('cerrada','resuelta','finalizada','respondida')
+                  AND lower(coalesce(estado,'')) IN
+                      ('cerrada','resuelta','finalizada','respondida')
                 """
             )
         )
     except Exception as e:
         print("No se pudo backfillear fecha_respuesta:", e)
-    conn.commit()
 
+    conn.commit()
 def tiene_password(password: str) -> str:
     return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
@@ -161,7 +214,7 @@ def validar_correo(correo: str) -> bool:
         return False
     if "." not in correo:
         return False
-    
+
     # Validar que después del punto hay al menos 2 caracteres
     partes = correo.split(".")
     if partes[-1].strip() and len(partes[-1].strip()) >= 2:
@@ -427,16 +480,16 @@ def enviar_correo_bienvenida(email_destinatario: str, email_usuario: str):
                     <h1 style="color: #1e40af; text-align: center;">¡Bienvenido!</h1>
                     <p style="color: #333; font-size: 16px;">Hola,</p>
                     <p style="color: #333; font-size: 16px;">Tu registro en <strong>{empresa_nombre}</strong> ha sido exitoso. A continuación, encontrarás tus datos de acceso:</p>
-                    
+
                     <div style="background-color: #f0f7ff; padding: 15px; border-left: 4px solid #1e40af; margin: 20px 0; border-radius: 5px;">
                         <p style="margin: 5px 0;"><strong>�??� Correo:</strong> <code>{email_usuario}</code></p>
                     </div>
-                    
+
                     <p style="color: #333; font-size: 16px;">Para iniciar sesión, ingresa a:</p>
                     <p style="text-align: center; margin: 20px 0;">
                         <a href="{get_app_base_url() or 'http://localhost:3000'}/login" style="background-color: #1e40af; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold;">Ir a Iniciar Sesión</a>
                     </p>
-                    
+
                     <hr style="border: 1px solid #ddd; margin: 20px 0;">
                     <p style="color: #666; font-size: 14px;"><strong>Recuerda:</strong> Nunca compartas tu contraseña con terceros. El equipo de soporte nunca te pedirá tu contraseña.</p>
                     <p style="color: #666; font-size: 14px;">Si tienes preguntas o problemas, contacta a nuestro equipo de soporte.</p>
@@ -792,13 +845,13 @@ def generar_excel_filtrado_con_grafica(
 
 # quitar prints de prueba
 
-class AdjuntoMeta(rx.Base):
+class AdjuntoMeta(BaseModel):
     documento_adjunto: str
     documento_href: str
     documento_preview_src: str
     documento_existe: bool
 
-class HistorialEvento(rx.Base):
+class HistorialEvento(BaseModel):
     fecha: str
     anterior: str
     nuevo: str
@@ -808,7 +861,7 @@ class HistorialEvento(rx.Base):
     documento_preview_src: str
     documento_existe: bool
     adjuntos: list[AdjuntoMeta]
-class HistorialSolicitudEvento(rx.Base):
+class HistorialSolicitudEvento(BaseModel):
     estado_anterior: str
     estado_nuevo: str
     fecha_cambio: str
@@ -840,10 +893,37 @@ class State(rx.State):
     def cerrar_detalle_solicitud(self):
         self.detalle_solicitud_modal_abierto = False
 
+    def set_mantenimiento_modal_abierto(self, abierto: bool):
+        self.mantenimiento_modal_abierto = abierto
+
+    def set_confirmar_correo(self, valor: str):
+        self.confirmar_correo = valor
+
+    def set_confirmar_correo_match(self, valor: bool):
+        self.confirmar_correo_match = valor
+
+    def set_contraseña(self, valor: str):
+        self.contraseña = valor
+
+    def set_confirmar_contraseña(self, valor: str):
+        self.confirmar_contraseña = valor
+
+    def set_pqrs_contacto_email(self, valor: str):
+        self.pqrs_contacto_email = valor
+
+    def set_calificacion_opcion(self, valor: str):
+        self.calificacion_opcion = valor
+
+    def set_comentario_calificacion(self, valor: str):
+        self.comentario_calificacion = valor
+
+    def set_search_area_query(self, valor: str):
+        self.search_area_query = valor
+
     def abrir_vencimiento_modal(self, data: Any):
         import logging
         print(f"[LOG] abrir_vencimiento_modal llamado con data: {data} (tipo: {type(data)})")
-        
+
         rango = ""
         # 1. Si es un diccionario directo
         if isinstance(data, dict):
@@ -857,7 +937,7 @@ class State(rx.State):
         # 3. Si es un string directo
         elif isinstance(data, str):
             rango = data
-            
+
         print(f"[LOG] Rango determinado: '{rango}'")
         if not rango:
             print(f"[LOG] Rango vacío, no se hace nada.")
@@ -865,11 +945,11 @@ class State(rx.State):
 
         self.rango_vencimiento_seleccionado = rango
         self.solicitudes_vencimiento_filtradas = []
-        
+
         filtered = []
         for s in (self.solicitudes_filtradas or []):
             rem = s.get("semaforo_remaining")
-            
+
             match = False
             if rem is None:
                 if rango == ">10 días":
@@ -883,7 +963,7 @@ class State(rx.State):
                     match = True
                 elif rango == ">10 días" and rem > 10:
                     match = True
-                
+
             if match:
                 filtered.append({
                     "id": s.get("id"),
@@ -898,7 +978,7 @@ class State(rx.State):
                     "is_expired": bool(rem is not None and rem <= 0),
                     "remaining_str": "Vencida" if (rem is not None and rem <= 0) else (f"{int(rem)} días" if rem is not None else "N/A")
                 })
-        
+
         print(f"[LOG] Encontradas {len(filtered)} solicitudes para el rango '{rango}'")
         self.solicitudes_vencimiento_filtradas = filtered
         self.vencimiento_modal_abierto = True
@@ -976,7 +1056,7 @@ class State(rx.State):
                     if match:
                         doc = match.group(1).strip()
                         obs_raw = re.sub(r"\s*\[DOCUMENTO(?: ADJUNTO)?:[^\]]+\]", "", obs_raw).strip()
-                
+
                 adjuntos_metas = []
                 if doc:
                     parts = [p.strip() for p in doc.split(",") if p.strip()]
@@ -987,7 +1067,7 @@ class State(rx.State):
                             documento_href=str(m.get("href", "")),
                             documento_preview_src=str(m.get("preview_src", "")),
                             documento_existe=bool(m.get("existe", False)),
-                        ))                
+                        ))
                 first_meta = adjuntos_metas[0] if adjuntos_metas else None
                 estados.append(
                     HistorialEvento(
@@ -1079,7 +1159,7 @@ class State(rx.State):
     telefono_valid: bool = False
     departamento_valid: bool = False
     ciudad_valid: bool = False
-    
+
     # Diccionario de departamentos y ciudades para dropdowns dinámicos
     departamentos_ciudades =  {
     "Amazonas": ["Leticia", "Puerto Nariño", "La Chorrera", "Tarapacá", "Puerto Santander", "Mirití-Paraná", "Puerto Alegría", "Puerto Arica", "La Victoria"],
@@ -1116,7 +1196,7 @@ class State(rx.State):
     "Vaupés": ["Mitú", "Carurú", "Taraira"],
     "Vichada": ["Puerto Carreño", "La Primavera", "Santa Rosalía", "Cumaribo"]
 }
-    
+
     # Habeas data / autorizaciones
     acepta_notificaciones: bool = False
     acepta_politica_datos: bool = False
@@ -1157,7 +1237,7 @@ class State(rx.State):
     succes: str = ""
     error_de_contraseña: str = ""
     succes2: str = ""
-    
+
     id_usuario: str = rx.Cookie("0")
     es_autentica: str = rx.Cookie("false")
     email_actual: str = rx.Cookie("")
@@ -1204,14 +1284,14 @@ class State(rx.State):
     ayuda_seccion_abierta: str = "estados"
     registro_seccion_abierta: str = "cuenta"
     registro_paso_habilitado: int = 1
-    
+
     # Campos para asignación de área con mensaje
     asignar_area_id: int = 0
     asignar_area_mensaje: str = ""
     asignar_area_nombre: str = ""
     asignar_area_seleccionada: str = ""
     mensaje_asignacion: str = ""
-    
+
     # Campos para consultar estado de solicitud
     consulta_radicado: str = ""
     solicitud_consultada: dict[str, Any] = {}
@@ -1272,7 +1352,7 @@ class State(rx.State):
             return [{"name": normalized, "cantidad": counts.get(normalized, 0)}]
 
         return []
-    
+
     @rx.var
     def data_grafica_estado(self) -> list[dict]:
         return [
@@ -1301,29 +1381,29 @@ class State(rx.State):
                 self.mostrar_toast("No hay datos para exportar.", "warning")
                 self.mostrar_menu_descarga = False
                 return
-            
+
             # Generar CSV en memoria
             output = io.StringIO()
             writer = csv.DictWriter(output, fieldnames=list(data[0].keys()))
             writer.writeheader()
             writer.writerows(data)
-            
+
             # Guardar en almacenamiento temporal
             csv_bytes = output.getvalue().encode('utf-8')
             filename = f"reportes_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}.csv"
             download_id = str(uuid.uuid4())
-            
+
             TEMP_DOWNLOADS[download_id] = {
                 "data": csv_bytes,
                 "filename": filename,
                 "mime": "text/csv; charset=utf-8"
             }
-            
+
             self.export_filename = filename
             self.mostrar_toast(f"�?? CSV generado. {len(data)} registros. Descargando...", "success")
             self.mostrar_menu_descarga = False
             self.export_href = f"/api/download/{download_id}"
-            
+
         except Exception as e:
             print(f"ERROR en export_reportes_csv: {type(e).__name__}: {e}")
             self.mostrar_toast(f"Error: {str(e)[:100]}", "error")
@@ -1394,27 +1474,27 @@ class State(rx.State):
     def toggle_menu_descarga(self):
         """Alterna la visibilidad del menú de descarga."""
         self.mostrar_menu_descarga = not self.mostrar_menu_descarga
-        
-     
+
+
     @rx.var
     def numero_solicitudes(self) -> str:
         return str(len(self.solicitudes_filtradas or []))
-    
+
     @rx.var
     def numero_solicitudes_radicadas(self) -> str:
         return str(sum(1 for solicitud in (self.solicitudes_filtradas or []) if (str(solicitud.get('estado') or '').strip().lower()) == 'radicada'))
-    
+
     @rx.var
     def numero_solicitudes_actualizadas(self) -> str:
         # 'en proceso', 'actualizada', 'asignada' y 'en revisión' representan solicitudes activas / en proceso
         # Tambien se cuentan 'asignada a area' y 'en gestion de area'
         valid_states = ('en proceso', 'actualizada', 'asignada', 'en revisión', 'en revision', 'asignada a area', 'en gestion de area')
         return str(sum(1 for solicitud in (self.solicitudes_filtradas or []) if (str(solicitud.get('estado') or '').strip().lower()) in valid_states))
-    
+
     @rx.var
     def numero_solicitudes_cerradas(self) -> str:
         return str(sum(1 for solicitud in (self.solicitudes_filtradas or []) if (str(solicitud.get('estado') or '').strip().lower()) in ('cerrada', 'finalizada', 'resuelta')))
-    
+
     def _normalize_tipo_solicitud(self, tipo_raw: str) -> str:
         """Normaliza tipos de solicitud a las categorías usadas en los reportes."""
         if not tipo_raw:
@@ -1459,7 +1539,7 @@ class State(rx.State):
         """
         today = date.today()
         start_date = today - timedelta(days=29)
-        
+
         # preparar buckets por día
         buckets: dict[str, list[int]] = {}
         for i in range(30):
@@ -1479,7 +1559,7 @@ class State(rx.State):
                     continue
                 start = fr.date() + timedelta(days=1)
                 dias = self._business_days_between(start, resp_date, set())
-                
+
                 key = resp_date.strftime("%Y-%m-%d")
                 buckets.setdefault(key, []).append(dias)
             except Exception:
@@ -1584,10 +1664,10 @@ class State(rx.State):
                     return {"remaining": None, "fill": "gray"}
 
             start = dt.date()
-            
+
             estado_raw = str(solicitud.get("estado") or "").strip().lower()
             closed_states = {"respondida", "respondido", "cerrada", "cerrado", "finalizada", "finalizado", "resuelta", "resuelto"}
-            
+
             ref = date.today()
             if estado_raw in closed_states and solicitud.get("fecha_respuesta"):
                 try:
@@ -1708,7 +1788,7 @@ class State(rx.State):
             fallback = 0
         return [{"name": "Semáforo", "verde": fallback, "amarillo": 0, "rojo": 0}]
     search_area_query: str = ""
-    
+
     @rx.var
     def top_areas(self) -> list[dict]:
         """Devuelve las áreas responsables por cantidad de solicitudes filtradas (de mayor a menor), filtrables por búsqueda.
@@ -1718,11 +1798,11 @@ class State(rx.State):
             a = s.get('area_responsable') or 'N/A'
             counts[a] = counts.get(a, 0) + 1
         items = sorted(counts.items(), key=lambda x: x[1], reverse=True)
-        
+
         q = self.search_area_query.strip().lower()
         if q:
             items = [item for item in items if q in str(item[0]).lower()]
-            
+
         return [{"name": name, "total": total} for name, total in items]
 
     @rx.var
@@ -1879,7 +1959,7 @@ class State(rx.State):
     @rx.var
     def documento_nombres_joined(self) -> str:
         return ", ".join(self.documento_nombres or [])
-    
+
     @rx.var
     def documento_nombres_count(self) -> str:
         return str(len(self.documento_nombres or []))
@@ -1891,23 +1971,23 @@ class State(rx.State):
             if isinstance(item, dict):
                 total += int(item.get("size") or 0)
         return f"{total / (1024 * 1024):.2f} MB"
-    
+
     @rx.var
     def usuarios_registrados_count(self) -> int:
         return len(self.usuarios_registrados or [])
-    
+
     @rx.var
     def solicitud_consultada_adjuntos(self) -> list[dict]:
         docs = self.solicitud_consultada.get("documento_adjuntos", [])
         if isinstance(docs, list) and docs:
             return docs
         return []
-    
-    
-    
+
+
+
     def set_query_solicitud(self, value: str):
         self.query_solicitud = value or ""
-    
+
     def set_filter_tipo_solicitud(self, value: str):
         self.filter_tipo_solicitud = value or "Todos"
 
@@ -1922,16 +2002,16 @@ class State(rx.State):
 
     def set_new_password(self, value: str):
         self.new_password = value
-    
+
     def set_confirm_new_password(self, value: str):
         self.confirm_new_password = value
-    
+
     def borrar_mensajes_de_estado(self):
         self.error_de_registro = ""
         self.succes = ""
         self.error_de_contraseña = ""
         self.succes2 = ""
-        
+
     def validacion_de_entradas(self, require_strong_pw: bool = True) -> bool:
         self.correo_confirmacion_visible = False
         self.correo_confirmacion_mensaje = ""
@@ -2072,7 +2152,7 @@ class State(rx.State):
     def set_and_validate_correo(self, val: str):
         """Valida el correo en tiempo real y borra el mensaje si es válido o vacío."""
         self.correo = val or ""
-        
+
         # Si el correo está vacío, borra el mensaje
         if not self.correo.strip():
             self.correo_confirmacion_visible = False
@@ -2080,7 +2160,7 @@ class State(rx.State):
             self.error_de_registro = ""
             self.correo_validado = False
             return
-        
+
         # Si es válido, muestra mensaje verde y borra error
         if validar_correo(self.correo):
             self.correo_confirmacion_visible = True
@@ -2259,7 +2339,7 @@ class State(rx.State):
         allowed_ext = {"pdf", "png", "jpg", "jpeg"}
         max_files = 3
         max_total_size = 10 * 1024 * 1024
-        
+
         target = files if files is not None else documento
         if target is None:
             return
@@ -2774,7 +2854,7 @@ class State(rx.State):
             self._limpiar_campos_respuesta_documento()
             self._refrescar_solicitud_en_lista(solicitud_id_actualizada)
             self.mostrar_toast(f"Estado actualizado a '{estado_nuevo}' correctamente.", "success")
-            
+
             # Start background thread for email notification
             if datos_notificacion:
                 import threading
@@ -2783,7 +2863,7 @@ class State(rx.State):
                     args=(dict(datos_notificacion), list(documentos_respuesta_guardados)),
                     daemon=True,
                 ).start()
-                
+
             yield State.clear_mensajes_delay
 
         except Exception as e:
@@ -2801,7 +2881,7 @@ class State(rx.State):
         self._limpiar_campos_respuesta_documento()
         self.respuesta_documento_error = ""
         self.mensaje_actualizar_estado = ""
-        
+
         # Cargar el área responsable actual para persistir en el selector
         with Session(engine) as session:
             sol = session.get(Solicitud, solicitud_id)
@@ -2829,34 +2909,34 @@ class State(rx.State):
     def asignar_area_con_mensaje(self):
         """Asigna un área a una solicitud y envía un mensaje al ciudadano."""
         self.mensaje_asignacion = ""
-        
+
         area_a_asignar = self.asignar_area_seleccionada or self.asignar_area_nombre
         if not self.asignar_area_id or not area_a_asignar:
             self.mensaje_asignacion = "Selecciona un área válida."
             return
-        
+
         if not self.asignar_area_mensaje:
             self.mensaje_asignacion = "Escribe un mensaje para el ciudadano."
             return
-        
+
         try:
             with Session(engine) as session:
                 solicitud_obj = session.get(Solicitud, self.asignar_area_id)
                 if not solicitud_obj:
                     self.mensaje_asignacion = "Solicitud no encontrada."
                     return
-                
+
                 estado_anterior = solicitud_obj.estado
                 estado_nuevo = "Asignada a Area" if estado_anterior == "Radicada" else estado_anterior
-                
+
                 solicitud_obj.estado = estado_nuevo
                 solicitud_obj.area_responsable = area_a_asignar
                 session.add(solicitud_obj)
-                
+
                 # Crear registro en la bitácora / historial
                 prefix = f"[ÁREA: {area_a_asignar}]"
                 obs_historial = prefix + ("\n" + self.asignar_area_mensaje if self.asignar_area_mensaje else "")
-                
+
                 historial = SolicitudEstadoHistorial(
                     solicitud_id=solicitud_obj.id,
                     estado_anterior=estado_anterior,
@@ -2867,14 +2947,14 @@ class State(rx.State):
                 )
                 session.add(historial)
                 session.commit()
-            
+
             # Enviar notificación por correo al ciudadano
             solicitud_info = None
             for sol in self.solicitudes:
                 if sol['id'] == self.asignar_area_id:
                     solicitud_info = sol
                     break
-            
+
             if solicitud_info:
                 area_a_asignar = self.asignar_area_seleccionada or self.asignar_area_nombre
                 asunto_email = f"Tu solicitud PQRS ha sido asignada a {area_a_asignar}"
@@ -2900,7 +2980,7 @@ Sistema PQRS
 
                 # Enviar correo al ciudadano
                 enviar_correo_notificacion(solicitud_info['creado_por'], asunto_email, cuerpo_email)
-            
+
             self.mensaje_asignacion = f"Área asignada a {area_a_asignar} y mensaje enviado correctamente."
             self.cargar_solicitudes()
             self.cerrar_asignar_area()
@@ -3017,8 +3097,8 @@ Sistema PQRS
             logger.exception("Error parseando campo 'documento' de solicitud %s", getattr(solicitud, 'id', None))
 
         return result
-        
-        
+
+
 
     @rx.var
     def solicitud_consultada_adjuntos(self) -> list[dict[str, str]]:
@@ -3256,25 +3336,25 @@ Sistema PQRS
             if not self.export_filename:
                 self.mostrar_toast("No hay archivo para descargar.", "warning")
                 return
-            
+
             filepath = os.path.join(UPLOAD_DIR, self.export_filename)
             if not os.path.exists(filepath):
                 self.mostrar_toast(f"Archivo no encontrado: {self.export_filename}", "error")
                 self.export_filename = ""
                 self.export_href = ""
                 return
-            
+
             # Leer el archivo y preparar para descarga
             with open(filepath, 'rb') as f:
                 content = f.read()
-            
+
             # Usar rx.download para forzar la descarga
             return rx.download(
                 data=content,
                 filename=self.export_filename,
                 mime_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
-            
+
         except Exception as e:
             print(f"ERROR en descargar_reporte_excel: {e}")
             import traceback
@@ -3404,7 +3484,7 @@ Sistema PQRS
             self.succes2 = ""
             self.error_de_contraseña = "El correo electrónico es obligatorio."
             return
-            
+
         if not self.contraseña or not self.contraseña.strip():
             self.succes2 = ""
             self.error_de_contraseña = "La contraseña es obligatoria."
@@ -3443,7 +3523,7 @@ Sistema PQRS
                 return rx.redirect("/dashboard-funcionario")
             else:
                 return rx.redirect("/dashboard")
-        
+
 
     def redirect_after_login(self):
         if self.rol_usuario == "funcionario":
@@ -3631,7 +3711,7 @@ Sistema PQRS
                     # Obtener persona_vulnerable del usuario autenticado
                     usuario = session.get(Usuario, self.id_usuario_num)
                     persona_vulnerable_valor = usuario.persona_vulnerable if usuario else None
-                    
+
                     solicitud_obj.tipo_solicitud = self.tipo_solicitud
                     solicitud_obj.persona_vulnerable = persona_vulnerable_valor or None
                     solicitud_obj.asunto = self.asunto
@@ -3678,7 +3758,7 @@ Sistema PQRS
                 # Obtener persona_vulnerable del usuario autenticado
                 usuario = session.get(Usuario, self.id_usuario_num)
                 persona_vulnerable_valor = usuario.persona_vulnerable if usuario else None
-                
+
                 solicitud_obj = Solicitud(
                     radicado=f"PQRS-{datetime.now().year}-{uuid.uuid4().hex[:8]}".upper(),
                     tipo_solicitud=self.tipo_solicitud,
@@ -3787,21 +3867,21 @@ Sistema PQRS
         """Consulta el estado de una solicitud por número de radicado"""
         self.consulta_mensaje = ""
         self.solicitud_consultada = {}
-        
+
         if not self.consulta_radicado:
             self.consulta_mensaje = "Ingresa un número de radicado válido."
             return
-        
+
         try:
             with Session(engine) as session:
                 solicitud = session.exec(
                     select(Solicitud).where(Solicitud.radicado == self.consulta_radicado)
                 ).first()
-                
+
                 if not solicitud:
                     self.consulta_mensaje = "No se encontró una solicitud con ese número de radicado."
                     return
-                
+
                 # HU11: registrar fecha_consulta_ciudadano si la solicitud es Solucionada y aún no se registró
                 if str(solicitud.estado or "").strip().lower() == "solucionada" and not solicitud.fecha_consulta_ciudadano:
                     solicitud.fecha_consulta_ciudadano = datetime.now()
@@ -3813,7 +3893,7 @@ Sistema PQRS
                 # HU11: cargar historial de cambios
                 self.cargar_historial_solicitud(solicitud.id, session)
                 self.consulta_mensaje = "Solicitud encontrada."
-                
+
         except Exception as e:
             self.consulta_mensaje = f"Error consultando solicitud: {e}"
 
@@ -3835,7 +3915,7 @@ Sistema PQRS
                         if end != -1:
                             area_h = obs_raw[7:end].strip()
                             obs_clean = obs_raw[end + 1:].lstrip("\n").strip()
-                    
+
                     doc = h.documento_adjunto or ""
                     if not doc:
                         match = re.search(r"\[DOCUMENTO(?: ADJUNTO)?:\s*([^\]\|]+)\]", obs_clean)
@@ -3968,7 +4048,7 @@ Sistema PQRS
                 observacion_texto = f"Ciudadano calificó el servicio con {estrellas} estrella(s)."
                 if self.comentario_calificacion.strip():
                     observacion_texto += f" Comentario: {self.comentario_calificacion.strip()}"
-                
+
                 h = SolicitudEstadoHistorial(
                     solicitud_id=sol.id,
                     estado_anterior="Solucionada",
@@ -4050,32 +4130,32 @@ Sistema PQRS
     def cambiar_rol_ciudadano_a_funcionario(self):
         """Cambia el rol de un ciudadano a funcionario"""
         self.cambiar_rol_mensaje = ""
-        
+
         if not self.cambiar_rol_email:
             self.cambiar_rol_mensaje = "Ingresa el correo del usuario."
             return
         if not self.confirmar_promocion_rol:
             self.cambiar_rol_mensaje = "Debes confirmar la validación del usuario antes de promover el rol."
             return
-        
+
         try:
             with rx.session() as session:
                 usuario = session.exec(
                     select(Usuario).where(Usuario.email == self.cambiar_rol_email)
                 ).first()
-                
+
                 if not usuario:
                     self.cambiar_rol_mensaje = f"No se encontró usuario con el correo {self.cambiar_rol_email}."
                     return
-                
+
                 if usuario.rol == "funcionario":
                     self.cambiar_rol_mensaje = f"El usuario ya es funcionario."
                     return
-                
+
                 usuario.rol = "funcionario"
                 session.add(usuario)
                 session.commit()
-                
+
                 # Enviar notificación
                 try:
                     asunto = "Rol actualizado - Has sido promovido a Funcionario"
@@ -4100,7 +4180,7 @@ Sistema PQRS
                     enviar_correo_notificacion(self.cambiar_rol_email, asunto, cuerpo)
                 except:
                     pass  # No fallar si no se envía el correo
-                
+
                 self.cambiar_rol_mensaje = f"�?? Rol del usuario {self.cambiar_rol_email} actualizado a funcionario."
                 self.cambiar_rol_email = ""
                 self.confirmar_promocion_rol = False
@@ -4263,7 +4343,7 @@ def auth_card(title: str, on_submit, show_confirm: bool = False) -> rx.Component
             rx.vstack(
                 rx.hstack(
                     rx.heading("CO.", size="6", color=rx.color_mode_cond(light="#1e3a8a", dark="#93c5fd"), font_weight="black"),
-                  
+
                     justify="between",
                     width="100%",
                 ),
@@ -4274,7 +4354,7 @@ def auth_card(title: str, on_submit, show_confirm: bool = False) -> rx.Component
                     font_size="sm",
                     width="100%",
                 ),
-                
+
                 rx.hstack(
                     rx.button("1. Cuenta", type="button", size="2", variant=rx.cond(State.registro_seccion_abierta == "cuenta", "solid", "soft"), color_scheme="blue", on_click=State.set_registro_seccion_abierta("cuenta")),
                     rx.button("2. Identidad", type="button", size="2", variant=rx.cond(State.registro_seccion_abierta == "identidad", "solid", "soft"), color_scheme="blue", on_click=State.set_registro_seccion_abierta("identidad"), is_disabled=State.registro_paso_habilitado < 2),
@@ -4552,7 +4632,7 @@ def auth_card(title: str, on_submit, show_confirm: bool = False) -> rx.Component
                     ),
                     rx.box(),
                 ),
-                
+
                 rx.cond(
                     State.modal_politica_visible,
                     rx.box(
@@ -4730,7 +4810,7 @@ def auth_card(title: str, on_submit, show_confirm: bool = False) -> rx.Component
                         p="6",
                     ),
                 ),
-                
+
                 rx.cond(
                     State.error_de_registro != "",
                     rx.box(
@@ -4769,7 +4849,7 @@ def auth_card(title: str, on_submit, show_confirm: bool = False) -> rx.Component
                     ),
                     rx.box(),
                 ),
-                
+
                 rx.hstack(
                     rx.button(
                         "Crear cuenta",
@@ -4787,7 +4867,7 @@ def auth_card(title: str, on_submit, show_confirm: bool = False) -> rx.Component
                     width="100%",
                     margin_top="4"
                 ),
-                
+
                 spacing="4",
                 width="100%",
             ),
@@ -4872,33 +4952,33 @@ def navbar() -> rx.Component:
                 ),
                 href=State.home_url, text_decoration="none", flex_shrink="0",
             ),
-            
+
             rx.box(width="1px", height="24px", bg="rgba(255,255,255,0.2)", margin_x="4"),
-            
+
             # Navegación con iconos dinámicos
             rx.hstack(
                 nav_icon_link("home", "Inicio", State.home_url),
                 nav_icon_link("file-plus", "Nueva Solicitud", "/solicitudes"),
-                
+
                 # Opciones de Funcionario
                 nav_icon_link("bar-chart-2", "Reportes", "/reportes", display_cond=State.es_autenticada & (State.rol_usuario == "funcionario")),
                 nav_icon_link("users", "Ver Usuarios", "/usuarios", display_cond=State.es_autenticada & (State.rol_usuario == "funcionario")),
                 nav_icon_link("user-plus", "Registrar Func.", "/registro-funcionario", display_cond=State.es_autenticada & (State.rol_usuario == "funcionario")),
                 nav_icon_link("settings", "Cambiar Rol", "/cambiar-rol", display_cond=State.es_autenticada & (State.rol_usuario == "funcionario")),
                 nav_icon_link("help-circle", "Ayuda", "/ayuda-funcionario", display_cond=State.es_autenticada & (State.rol_usuario == "funcionario")),
-                
+
                 # Dashboards
                 nav_icon_link("layout", "Dashboard Func.", "/dashboard-funcionario", active=True, display_cond=State.es_autenticada & (State.rol_usuario == "funcionario")),
                 nav_icon_link("layout", "Mi Panel", "/dashboard", active=True, display_cond=State.es_autenticada & (State.rol_usuario != "funcionario")),
-                
+
                 spacing="2",
                 align_items="center",
                 flex_wrap="nowrap",
                 overflow_x="auto"
             ),
-            
+
             rx.spacer(),
-            
+
             # Controles derecha
             rx.hstack(
                 rx.color_mode.button(color="rgba(255,255,255,0.8)", _hover={"color": "white"}),
@@ -5526,7 +5606,7 @@ def mantenimiento_modal() -> rx.Component:
     border = rx.color_mode_cond(light="1px solid #e2e8f0", dark="1px solid #334155")
     text_main = rx.color_mode_cond(light="#0f172a", dark="#f8fafc")
     text_sec = rx.color_mode_cond(light="#475569", dark="#cbd5e1")
-    
+
     return rx.dialog.root(
         rx.dialog.content(
             rx.vstack(
@@ -5591,7 +5671,7 @@ def mantenimiento_modal() -> rx.Component:
             }
         ),
         open=State.mantenimiento_modal_abierto,
-        on_open_change=State.set_mantenimiento_modal_abierto,
+        on_open_change=State.set_mantenimiento_modal_abierto
     )
 
 
@@ -5612,13 +5692,13 @@ def footer() -> rx.Component:
                 rx.text("Código Postal: 760001", color=text_color),
                 rx.text("PBX: (+57) 602 XXX XXXX", color=text_color),
                 rx.link(
-                    "Correo institucional: atencionalciudadano@empresa.gov.co", 
+                    "Correo institucional: atencionalciudadano@empresa.gov.co",
                     href="mailto:atencionalciudadano@empresa.gov.co",
                     color=link_color
                 ),
                 rx.link(
-                    "Ley 1755 de 2015", 
-                    href="https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=65334", 
+                    "Ley 1755 de 2015",
+                    href="https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=65334",
                     target="_blank",
                     color=link_color
                 ),
@@ -5688,8 +5768,8 @@ def brand_footer() -> rx.Component:
         _dark={"bg": "gray.900", "borderColor": "gray.700"},
         border_top="1px solid #e2e8f0"
     )
- 
-    
+
+
 
 def _ldc_reg(light, dark):
     return rx.color_mode_cond(light=light, dark=dark)
@@ -7057,14 +7137,14 @@ def dashboard() -> rx.Component:
             ),
             rx.heading("¡Hola, ", State.nombres, "!", size="7", color=text_color, font_weight="bold"),
             rx.text("Bienvenido a tu panel digital.", color=subtext_color, font_size="sm"),
-            
+
             rx.divider(margin_y="6", opacity="0.5"),
-            
+
             rx.vstack(
                 rx.hstack(rx.icon("file-text", size=18, color="#3b82f6"), rx.text("Total Solicitudes", font_weight="medium"), rx.spacer(), rx.heading(State.solicitudes.length(), size="4"), width="100%"),
                 spacing="4", width="100%"
             ),
-            
+
             rx.spacer(),
             rx.box(
                 rx.icon("shield-check", size=24, color="#10b981", margin_bottom="2"),
@@ -7261,7 +7341,7 @@ def dashboard() -> rx.Component:
                     # Fondos holográficos abstractos
                     rx.box(position="absolute", top="-10%", left="0%", width="500px", height="500px", bg="rgba(139, 92, 246, 0.1)", border_radius="full", filter="blur(120px)", z_index="0"),
                     rx.box(position="absolute", bottom="-10%", right="0%", width="600px", height="600px", bg="rgba(59, 130, 246, 0.1)", border_radius="full", filter="blur(150px)", z_index="0"),
-                    
+
                     # Bento Grid Maestro
                     rx.grid(
                         bento_profile,
@@ -7765,7 +7845,7 @@ def funcionario_dashboard() -> rx.Component:
                     # Fondo Atmosférico
                     rx.box(position="absolute", top="-10%", left="-5%", width="600px", height="600px", bg="rgba(59, 130, 246, 0.15)", border_radius="full", filter="blur(150px)", z_index="0"),
                     rx.box(position="absolute", bottom="-10%", right="-5%", width="700px", height="700px", bg="rgba(139, 92, 246, 0.1)", border_radius="full", filter="blur(150px)", z_index="0"),
-                    
+
                     # Contenedor Principal (GRID BENTO BOX)
                     rx.grid(
                         # ==========================================
@@ -7790,7 +7870,7 @@ def funcionario_dashboard() -> rx.Component:
                                 ),
                                 p="6", width="100%", bg=card_bg, backdrop_filter="blur(24px)", border=card_border, border_radius="3xl", box_shadow="0 20px 40px -15px rgba(0,0,0,0.1)"
                             ),
-                            
+
                             # Modulo de Usuarios Registrados
                             rx.box(
                                 rx.vstack(
@@ -7875,7 +7955,7 @@ def funcionario_dashboard() -> rx.Component:
                                 ),
                                 p="5", width="100%", bg=card_bg, backdrop_filter="blur(24px)", border=card_border, border_radius="3xl", box_shadow="0 20px 40px -15px rgba(0,0,0,0.1)"
                             ),
-                            
+
                             spacing="6", width="100%"
                         ),
 
@@ -7956,7 +8036,7 @@ def funcionario_dashboard() -> rx.Component:
                                             variant="soft",
                                             radius="full",
                                         ),
-                                        
+
                                         spacing="2",
                                         align_items="center",
                                         flex_wrap="wrap",
@@ -7995,7 +8075,7 @@ def funcionario_dashboard() -> rx.Component:
                                     width="100%",
                                 ),
                             ),
-                            
+
                             # Command Bar (Buscador y Filtros Cristalinos)
                             rx.box(
                                 rx.hstack(
@@ -8052,7 +8132,7 @@ def funcionario_dashboard() -> rx.Component:
                                 ),
                                 p="4", width="100%", bg=card_bg, backdrop_filter="blur(24px)", border=card_border, border_radius="2xl", margin_top="4"
                             ),
-                            
+
                             # Solicitudes activas (las cerradas van a pestaña aparte)
                             rx.vstack(
                                 rx.box(
@@ -8233,17 +8313,17 @@ def funcionario_dashboard() -> rx.Component:
                                 spacing="4",
                                 width="100%",
                             ),
-                            
+
                             spacing="4", width="100%"
                         ),
-                        
+
                         template_columns={"base": "1fr", "lg": "340px 1fr"}, gap="6", width="100%", max_width="100%", padding_y="8", padding_x={"base": "2", "md": "4"}, z_index="1"
                     ),
-                    
+
                     # ==========================================
                     # MODALES DE ACCION (Pop-ups Glassmorphism)
                     # ==========================================
-                    
+
                     # Modal: Historial
                     rx.cond(
                         State.historial_modal_abierto,
@@ -8289,7 +8369,7 @@ def funcionario_dashboard() -> rx.Component:
                             open=True, on_open_change=State.cerrar_historial
                         )
                     ),
-                    
+
                     # Modal: Editor de Estado (estilo KPI)
                     rx.cond(
                         State.editar_estado_id,
@@ -8627,7 +8707,7 @@ def funcionario_dashboard() -> rx.Component:
                             ),
                         ),
                     ),
-                    
+
                     # Modal: Asignar Área
                     rx.cond(
                         State.asignar_area_id,
@@ -8756,7 +8836,7 @@ def funcionario_dashboard() -> rx.Component:
                     ),
 
                     modal_vencimiento_solicitudes(),
-                    
+
                     padding_x={"base": "4", "md": "8"}, width="100%", position="relative", min_height="90vh", align_items="start"
                 ),
                 bg=rx.color_mode_cond(light="#f1f5f9", dark="#020617"), width="100%", min_height="100vh", style={"margin": "0"}
@@ -9164,7 +9244,7 @@ def funcionario_cerradas_dashboard() -> rx.Component:
 
 def solicitudes_page() -> rx.Component:
     # navbar() ya está definida en este módulo, no requiere importar desde pqrs
- 
+
     acceso_denegado = rx.center(
         rx.vstack(
             rx.icon("lock", size=48, color=RED_ERR),
@@ -9175,13 +9255,13 @@ def solicitudes_page() -> rx.Component:
         ),
         min_height="80vh",
     )
- 
+
     contenido = rx.box(
         navbar(),
         rx.center(
             rx.box(
                 rx.vstack(
- 
+
                     # �??�?? Encabezado �??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??
                     rx.vstack(
                         rx.hstack(
@@ -9235,7 +9315,7 @@ def solicitudes_page() -> rx.Component:
                             ),
                         ),
                     ),
- 
+
                     # �??�?? Sección 1: Tipo + Área �??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??
                     _section("tag", "Clasificación de la solicitud",
                         rx.grid(
@@ -9265,7 +9345,7 @@ def solicitudes_page() -> rx.Component:
                             gap="4", width="100%",
                         ),
                     ),
- 
+
                     # Campo "otro área"
                     rx.cond(
                         State.area_responsable == "Otros",
@@ -9284,7 +9364,7 @@ def solicitudes_page() -> rx.Component:
                             border_radius="14px", padding="18px 20px", width="100%",
                         ),
                     ),
- 
+
                     # �??�?? Sección 2: Asunto + Descripción �??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??
                     _section("file-text", "Detalle de la solicitud",
                         rx.vstack(
@@ -9329,7 +9409,7 @@ def solicitudes_page() -> rx.Component:
                             spacing="4", width="100%",
                         ),
                     ),
- 
+
                     # �??�?? Sección 3: Adjuntos �??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??
                     _section("paperclip", "Documento adjunto (opcional)",
                         rx.vstack(
@@ -9337,18 +9417,18 @@ def solicitudes_page() -> rx.Component:
                                 "Puedes adjuntar hasta 3 archivos PDF, PNG o JPG (máx. 10 MB en total).",
                                 font_size="12px", color=TEXT_SUB, line_height="1.6",
                             ),
- 
+
                             # �??�?? Zona de carga: widget JS autocontenido �??�??�??�??�??�??
                             rx.script("""
 window.__pqrsUpload = window.__pqrsUpload || (function(){
     function init(root){
         if(root.__pqrsInit) return;
         root.__pqrsInit = true;
- 
+
         const MAX  = 10*1024*1024, MAX_N = 3;
         const OK   = ['pdf','png','jpg','jpeg'];
         let   list = [];
- 
+
         const zone  = root.querySelector('[data-zone]');
         const inp   = root.querySelector('[data-inp]') || root.querySelector('input[type="file"]');
         const lbl   = root.querySelector('[data-lbl]');
@@ -9359,11 +9439,11 @@ window.__pqrsUpload = window.__pqrsUpload || (function(){
         const freeL = root.querySelector('[data-free]');
         const rows  = root.querySelector('[data-rows]');
         const errEl = root.querySelector('[data-err]');
- 
+
         function fmt(b){ return (b/1048576).toFixed(2)+' MB'; }
         function ext(n){ return n.split('.').pop().toLowerCase(); }
         function total(){ return list.reduce((a,f)=>a+f.size,0); }
- 
+
         function showErr(msg){
             errEl.textContent=msg; errEl.style.display='block';
         }
@@ -9371,11 +9451,11 @@ window.__pqrsUpload = window.__pqrsUpload || (function(){
         function clearErr(){
             errEl.textContent=''; errEl.style.display='none';
         }
- 
+
         function render(){
             const used=total(), free=Math.max(0,MAX-used);
             const pct=Math.min(100,(used/MAX)*100);
- 
+
             // barra
             barW.style.display = list.length?'block':'none';
             bar.style.width    = pct+'%';
@@ -9384,7 +9464,7 @@ window.__pqrsUpload = window.__pqrsUpload || (function(){
             usedL.textContent = fmt(used)+' usado';
             freeL.textContent = fmt(free)+' libres';
             freeL.style.color = col;
- 
+
             // zona label
             if(list.length){
                 lbl.textContent = list.map(f=>f.name).join(', ');
@@ -9395,7 +9475,7 @@ window.__pqrsUpload = window.__pqrsUpload || (function(){
                 lbl.style.color = '#94a3b8';
                 meta.textContent= 'PDF, PNG, JPG · máx. 10 MB · hasta 3 archivos';
             }
- 
+
             // filas
             rows.innerHTML='';
             list.forEach(function(f,i){
@@ -9433,7 +9513,7 @@ window.__pqrsUpload = window.__pqrsUpload || (function(){
                 rows.appendChild(clearAll);
             }
         }
- 
+
         inp.addEventListener('change',function(){
             const inc=Array.from(this.files);
             clearErr();
@@ -9460,7 +9540,7 @@ window.__pqrsUpload = window.__pqrsUpload || (function(){
             this.value='';
             render();
         });
- 
+
         // drag & drop
         zone.addEventListener('dragover',function(e){
             e.preventDefault();
@@ -9482,7 +9562,7 @@ window.__pqrsUpload = window.__pqrsUpload || (function(){
             inp.dispatchEvent(new Event('change'));
         });
     }
- 
+
     window.__pqrsClear = function() {
         document.querySelectorAll('[data-pqrs-upload]').forEach(function(root) {
             const inp = root.querySelector('[data-inp]') || root.querySelector('input[type="file"]');
@@ -9594,7 +9674,7 @@ window.__pqrsUpload = window.__pqrsUpload || (function(){
                                 data_pqrs_upload=True,
                                 style={"width":"100%"},
                             ),
- 
+
                             # Error desde State (validaciones servidor)
                             rx.cond(
                                 State.archivo_error_mensaje != "",
@@ -9607,7 +9687,7 @@ window.__pqrsUpload = window.__pqrsUpload || (function(){
                             spacing="3", width="100%",
                         ),
                     ),
- 
+
                     # �??�?? Autorización �??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??
                     rx.hstack(
                         rx.checkbox(
@@ -9636,7 +9716,7 @@ window.__pqrsUpload = window.__pqrsUpload || (function(){
                         padding="12px 16px",
                         width="100%",
                     ),
- 
+
                     # �??�?? Botón enviar �??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??
                     rx.button(
                         rx.hstack(
@@ -9690,7 +9770,7 @@ window.__pqrsUpload = window.__pqrsUpload || (function(){
                             border_radius="10px", padding="12px 16px", width="100%",
                         ),
                     ),
- 
+
                     spacing="4",
                     align_items="stretch",
                     width="100%",
@@ -9703,7 +9783,7 @@ window.__pqrsUpload = window.__pqrsUpload || (function(){
         ),
         bg=PAGE_BG, min_height="100vh", width="100%",
     )
- 
+
     return contenido
 
 NAVY      = "#1e3a8a"
@@ -9713,7 +9793,7 @@ GREEN_OK  = "#16a34a"
 ORANGE    = "#f59e0b"
 RED_ERR   = "#ef4444"
 VIOLET    = "#8b5cf6"
- 
+
 def consultar_estado_page() -> rx.Component:
     text_color = rx.color_mode_cond(light="#0f172a", dark="#f8fafc")
     subtext_color = rx.color_mode_cond(light="#64748b", dark="#94a3b8")
@@ -9793,7 +9873,7 @@ def consultar_estado_page() -> rx.Component:
                         padding_bottom="4",
                         border_bottom=rx.color_mode_cond(light="1px solid #e2e8f0", dark="1px solid #334155")
                     ),
-                    
+
                     # Formulario de consulta
                     rx.box(
                         rx.text("Número de Radicado", font_weight="semibold", font_size="sm", color=text_color, margin_bottom="2"),
@@ -9824,7 +9904,7 @@ def consultar_estado_page() -> rx.Component:
                         width="100%",
                         margin_y="4"
                     ),
-                    
+
                     # Mensaje de resultado
                     rx.cond(
                         State.consulta_mensaje,
@@ -9854,7 +9934,7 @@ def consultar_estado_page() -> rx.Component:
                             margin_bottom="4"
                         )
                     ),
-                    
+
                     # Detalles de la solicitud
                     rx.cond(
                         State.solicitud_consultada,
@@ -9882,7 +9962,7 @@ def consultar_estado_page() -> rx.Component:
                                     width="100%", align_items="center", padding_bottom="3",
                                     border_bottom=rx.color_mode_cond(light="1px solid #e2e8f0", dark="1px solid #334155")
                                 ),
-                                
+
                                 # Timeline de Estados Premium
                                 rx.box(
                                     rx.hstack(
@@ -9914,7 +9994,7 @@ def consultar_estado_page() -> rx.Component:
                                     padding_y="4",
                                     width="100%"
                                 ),
-                                
+
                                 # Datos de la Solicitud
                                 rx.grid(
                                     rx.box(
@@ -9941,7 +10021,7 @@ def consultar_estado_page() -> rx.Component:
                                     border_radius="xl",
                                     border=rx.color_mode_cond(light="1px solid #e2e8f0", dark="1px solid #1e293b")
                                 ),
-                                
+
                                 # Descripción
                                 rx.cond(
                                     State.solicitud_consultada.get("descripcion") != "",
@@ -9958,7 +10038,7 @@ def consultar_estado_page() -> rx.Component:
                                         spacing="1", width="100%", align_items="start", margin_top="2"
                                     )
                                 ),
-                                
+
                                 # Respuesta del Funcionario
                                 rx.cond(
                                     State.solicitud_consultada.get("respuesta") != "",
@@ -10049,7 +10129,7 @@ def consultar_estado_page() -> rx.Component:
                                         spacing="2", width="100%", align_items="start", margin_top="4"
                                     )
                                 ),
-                                
+
                                 # Calificación Obligatoria para HU11
                                 rx.cond(
                                     (State.solicitud_consultada.get("estado") == "Solucionada") | (State.solicitud_consultada.get("estado") == "Cerrada"),
@@ -10062,7 +10142,7 @@ def consultar_estado_page() -> rx.Component:
                                             ),
                                             rx.text("Por favor, califica nuestro servicio para cerrar definitivamente el caso.", font_size="sm", color=text_color),
                                             rx.text("Nota: Si no calificas en 5 días hábiles, se cerrará automáticamente con 5 estrellas.", font_size="xs", color=subtext_color),
-                                            
+
                                             rx.cond(
                                                 State.solicitud_consultada.get("calificacion_servicio") == None,
                                                 rx.vstack(
@@ -10198,7 +10278,7 @@ def consultar_estado_page() -> rx.Component:
                             animation="fadeIn 0.5s ease-out"
                         )
                     ),
-                    
+
                     spacing="0",
                     align_items="start",
                     width="100%"
@@ -10224,7 +10304,7 @@ def consultar_estado_page() -> rx.Component:
             padding_x="4"
         ),
         bg=rx.color_mode_cond(
-            light="linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)", 
+            light="linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)",
             dark="linear-gradient(135deg, #0f172a 0%, #020617 100%)"
         ),
         min_height="100vh",
@@ -10337,7 +10417,7 @@ def reportes_page() -> rx.Component:
                     width="100%",
                     align_items="end",
                 ),
-                
+
                 # Fila de KPIs (Top Row)
                 rx.grid(
                     kpi_metric_card(
@@ -10660,7 +10740,7 @@ def reportes_page() -> rx.Component:
             ),
             width="100%",
         ),
-        
+
         # Modal de Vencimiento de Solicitudes
         rx.cond(
             State.vencimiento_modal_abierto,
@@ -10668,11 +10748,11 @@ def reportes_page() -> rx.Component:
                 rx.vstack(
                     rx.box(
                         # Orbes Decorativos Translúcidos
-                        rx.box(position="absolute", top="-40px", left="-20%", width="150px", height="150px", 
-                               bg=rx.cond(State.rango_vencimiento_seleccionado == "Vencidas", "rgba(239, 68, 68, 0.6)", 
-                                          rx.cond(State.rango_vencimiento_seleccionado == "1-5 días", "rgba(245, 158, 11, 0.6)", "rgba(16, 185, 129, 0.6)")), 
+                        rx.box(position="absolute", top="-40px", left="-20%", width="150px", height="150px",
+                               bg=rx.cond(State.rango_vencimiento_seleccionado == "Vencidas", "rgba(239, 68, 68, 0.6)",
+                                          rx.cond(State.rango_vencimiento_seleccionado == "1-5 días", "rgba(245, 158, 11, 0.6)", "rgba(16, 185, 129, 0.6)")),
                                border_radius="full", filter="blur(40px)"),
-                        
+
                         rx.hstack(
                             rx.box(
                                 rx.icon("layers", color="white", size=28),
@@ -10737,7 +10817,7 @@ def reportes_page() -> rx.Component:
                         overflow="hidden",
                         width="100%"
                     ),
-                    
+
                     # Contenido / Tabla de Solicitudes
                     rx.box(
                         rx.cond(
@@ -10817,7 +10897,7 @@ def reportes_page() -> rx.Component:
                         width="100%",
                         bg=rx.color_mode_cond(light="rgba(255, 255, 255, 0.4)", dark="rgba(15, 23, 42, 0.4)")
                     ),
-                    
+
                     # Botón de Cerrar
                     rx.box(
                         rx.button(
@@ -10855,7 +10935,7 @@ def reportes_page() -> rx.Component:
                 box_shadow=rx.color_mode_cond(light="0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(0,0,0,0.05)", dark="0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255,255,255,0.1)")
             )
         ),
-        
+
         # Modal de Detalles de la Solicitud Seleccionada
         rx.cond(
             State.detalle_solicitud_modal_abierto,
@@ -10908,7 +10988,7 @@ def reportes_page() -> rx.Component:
                             overflow="hidden",
                             width="100%"
                         ),
-                        
+
                         # Cuerpo del Modal (Scrollable)
                         rx.vstack(
                             rx.grid(
@@ -10968,14 +11048,14 @@ def reportes_page() -> rx.Component:
                                 bg=rx.color_mode_cond(light="#f1f5f9", dark="rgba(255,255,255,0.02)"),
                                 border="1px dashed rgba(128,128,128,0.2)"
                             ),
-                            
+
                             rx.vstack(
                                 rx.text("Asunto:", font_weight="bold", color=rx.color_mode_cond(light="#475569", dark="#94a3b8"), font_size="xs", text_transform="uppercase"),
                                 rx.text(State.solicitud_consultada.get("asunto", ""), color=rx.color_mode_cond(light="#0f172a", dark="#ffffff"), font_weight="bold", font_size="md"),
                                 width="100%",
                                 align_items="start"
                             ),
-                            
+
                             # Descripción
                             rx.vstack(
                                 rx.text("Descripción Detallada:", font_weight="bold", color=rx.color_mode_cond(light="#475569", dark="#94a3b8"), font_size="xs", text_transform="uppercase"),
@@ -10990,7 +11070,7 @@ def reportes_page() -> rx.Component:
                                 width="100%",
                                 align_items="start"
                             ),
-                            
+
                             # Respuesta
                             rx.cond(
                                 State.solicitud_consultada.get("respuesta"),
@@ -11133,7 +11213,7 @@ def reportes_page() -> rx.Component:
                             width="100%",
                             spacing="4"
                         ),
-                        
+
                         # Botón de Cerrar del Modal Detalles
                         rx.box(
                             rx.button(
@@ -11212,7 +11292,7 @@ def usuarios_page() -> rx.Component:
                         width="100%",
                         align_items="center"
                     ),
-                    
+
                     rx.divider(margin_y="4", border_color=rx.color_mode_cond(light="#e2e8f0", dark="#334155")),
 
                     rx.box(
@@ -11323,7 +11403,7 @@ def usuarios_page() -> rx.Component:
                         width="100%",
                         overflow_x="auto"
                     ),
-                    
+
                     spacing="6",
                     align_items="stretch",
                     width="100%"
@@ -11376,7 +11456,7 @@ def cambiar_rol_page() -> rx.Component:
         ),
         min_height="80vh",
     )
- 
+
     contenido = rx.box(
         navbar(),
         rx.center(
@@ -11465,7 +11545,7 @@ def cambiar_rol_page() -> rx.Component:
                                 ),
                                 spacing="2", align_items="start", width="100%",
                             ),
-                            
+
                             # Checkbox para PQRS-1 backend
                             rx.checkbox(
                                 "Confirmo validación de identidad y autorización.",
@@ -11532,7 +11612,7 @@ def cambiar_rol_page() -> rx.Component:
         ),
         bg=page_bg, min_height="100vh", width="100%",
     )
- 
+
     return rx.cond(
         State.es_autenticada & (State.rol_usuario == "funcionario"),
         contenido, acceso_denegado,
@@ -11796,11 +11876,18 @@ if app._api is not None:
         StaticFiles(directory=str(UPLOAD_DIR), check_dir=False),
         name="assets_uploads",
     )
+
+
     app._api.mount(
         "/uploads",
         StaticFiles(directory=str(UPLOAD_DIR), check_dir=False),
         name="uploads",
     )
+
+    from pqrs.pqrs import router as pqrs_router
+
+    for route in pqrs_router.routes:
+        app._api.router.routes.append(route)
 
     from starlette.responses import FileResponse, Response
 
@@ -11815,6 +11902,7 @@ if app._api is not None:
             )
         asegurar_espejo_web(nombre)
         return FileResponse(ruta, filename=Path(ruta).name)
+
 
     async def download_file(download_id: str):
         try:
