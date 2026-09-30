@@ -1,7 +1,7 @@
 """Sistema de Gestión de PQRS para Empresas Públicas - Sprint 1: Registro de Ciudadanos"""
 import re
 
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, timedelta, timezone
 import random
 import bcrypt
 import base64
@@ -2804,7 +2804,7 @@ class State(rx.State):
                     solicitud_obj.respuesta = respuesta_enviada
                 closed_states = {"cerrada", "resuelta", "finalizada", "respondida"}
                 if str(estado_nuevo or "").strip().lower() in closed_states:
-                    solicitud_obj.fecha_respuesta = datetime.now()
+                    solicitud_obj.fecha_respuesta = datetime.now(timezone.utc)
                 if documentos_respuesta_guardados:
                     tags = ", ".join(nombres_adjuntos)
                     solicitud_obj.respuesta = (solicitud_obj.respuesta or "") + f"\n\n[DOCUMENTO ADJUNTO: {tags}]"
@@ -2818,7 +2818,7 @@ class State(rx.State):
                     solicitud_id=solicitud_obj.id,
                     estado_anterior=estado_anterior,
                     estado_nuevo=estado_nuevo,
-                    fecha_cambio=datetime.now(),
+                    fecha_cambio=datetime.now(timezone.utc),
                     observaciones=obs_historial,
                     documento_adjunto=", ".join(nombres_adjuntos) if nombres_adjuntos else None,
                 )
@@ -2941,7 +2941,7 @@ class State(rx.State):
                     solicitud_id=solicitud_obj.id,
                     estado_anterior=estado_anterior,
                     estado_nuevo=estado_nuevo,
-                    fecha_cambio=datetime.now(),
+                    fecha_cambio=datetime.now(timezone.utc),
                     observaciones=obs_historial,
                     documento_adjunto=None,
                 )
@@ -3405,7 +3405,7 @@ Sistema PQRS
                 Contraseña=hashed,
                 rol=rol,
                 is_active=True,
-                Fecha_de_creacion=datetime.now(),
+                Fecha_de_creacion=datetime.now(timezone.utc),
                 tipo_identificacion=str(self.tipo_identificacion or "").strip(),
                 numero_identificacion=str(self.numero_identificacion or "").strip(),
                 nombres=normalizar_texto(self.nombres),
@@ -3770,7 +3770,7 @@ Sistema PQRS
                     documento=json.dumps(documentos_guardados) if documentos_guardados else None,
                     documento_basename=json.dumps(documento_basenames_guardados) if documento_basenames_guardados else None,
                     estado="Radicada",
-                    fecha=datetime.now(),
+                    fecha=datetime.now(timezone.utc),
                     creado_por=self.email_actual if self.es_autenticada else self.pqrs_contacto_email,
                     usuario_id=self.id_usuario_num if self.id_usuario_num else None,
                 )
@@ -3784,7 +3784,7 @@ Sistema PQRS
                             solicitud_id=solicitud_obj.id,
                             estado_anterior="",
                             estado_nuevo=solicitud_obj.estado or "Radicada",
-                            fecha_cambio=solicitud_obj.fecha or datetime.now(),
+                            fecha_cambio=solicitud_obj.fecha or datetime.now(timezone.utc),
                             observaciones="Solicitud inicial (documentos adjuntos)",
                             documento_adjunto=", ".join(documentos_guardados) if documentos_guardados else None,
                         )
@@ -3884,7 +3884,7 @@ Sistema PQRS
 
                 # HU11: registrar fecha_consulta_ciudadano si la solicitud es Solucionada y aún no se registró
                 if str(solicitud.estado or "").strip().lower() == "solucionada" and not solicitud.fecha_consulta_ciudadano:
-                    solicitud.fecha_consulta_ciudadano = datetime.now()
+                    solicitud.fecha_consulta_ciudadano = datetime.now(timezone.utc)
                     session.add(solicitud)
                     session.commit()
                     session.refresh(solicitud)
@@ -4053,7 +4053,7 @@ Sistema PQRS
                     solicitud_id=sol.id,
                     estado_anterior="Solucionada",
                     estado_nuevo="Cerrada",
-                    fecha_cambio=datetime.now(),
+                    fecha_cambio=datetime.now(timezone.utc),
                     observaciones=observacion_texto,
                 )
                 session.add(sol)
@@ -4096,7 +4096,7 @@ Sistema PQRS
                             solicitud_id=sol.id,
                             estado_anterior="Solucionada",
                             estado_nuevo="Cerrada",
-                            fecha_cambio=datetime.now(),
+                            fecha_cambio=datetime.now(timezone.utc),
                             observaciones="Cierre automático: ciudadano no evaluó en 5 días hábiles. Calificación asignada: 5.",
                         )
                         session.add(sol)

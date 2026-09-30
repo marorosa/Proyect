@@ -22,7 +22,7 @@ services:
     restart: always
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
-      API_URL: http://localhost:8001
+      REFLEX_API_URL: http://localhost:8001
     ports:
       - "8001:8000"
     volumes:
@@ -37,11 +37,11 @@ services:
       context: .
       dockerfile: Dockerfile.frontend
       args:
-        API_URL: http://localhost:8001
+         REFLEX_API_URL: http://localhost:8001
     container_name: reflex_frontend
     restart: always
     environment:
-      API_URL: http://localhost:8001
+       REFLEX_API_URL: http://localhost:8001
     ports:
       - "8081:80"
     depends_on:
