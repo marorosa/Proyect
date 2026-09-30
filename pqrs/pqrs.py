@@ -1,11 +1,11 @@
-from fastapi import FastAPI
+from fastapi import APIRouter
 import sqlite3
 from datetime import datetime, date, timedelta
 import random
 from dateutil import parser
 from typing import Dict, Any, Optional
 
-app = FastAPI(title="PQRS Reportes")
+router = APIRouter()
 
 # --- Configuración: adapta la ruta a tu archivo sqlite ---
 SQLITE_DB = "reflex.db"
@@ -111,7 +111,7 @@ def compute_remaining_and_color(row: Dict[str, Any], today: date, holidays: set)
     return {"remaining": remaining, "color": color, "legal_days": legal, "used_business_days": used}
 
 
-@app.get("/api/semaforo")
+@router.get("/api/semaforo")
 def api_semaforo():
     today = date.today()
     HOL = load_holidays() or HOLIDAYS
@@ -139,7 +139,7 @@ def api_semaforo():
     return {"counts": counts, "items": items, "total_active": len(rows)}
 
 
-@app.get("/api/cumplimiento")
+@router.get("/api/cumplimiento")
 def api_cumplimiento():
     HOL = load_holidays() or HOLIDAYS
     sql = """
@@ -176,7 +176,7 @@ def api_cumplimiento():
     return {"cumplimiento_pct": round(cumplimiento_pct, 2), "total_respondidas": total, "respondidas_a_tiempo": on_time, "monthly": monthly}
 
 
-@app.get("/api/timeseries")
+@router.get("/api/timeseries")
 def api_timeseries(simulate: bool = False):
     """Return daily avg response times for last 30 days.
     If `simulate=true` is passed as a query param, any computed 0-day responses
@@ -225,3 +225,7 @@ def api_timeseries(simulate: bool = False):
         series.append({"date": key, "label": label, "avg_days": avg, "count": len(vals)})
 
     return {"series": series}
+# --- Configuración final de la App Reflex ---
+
+
+

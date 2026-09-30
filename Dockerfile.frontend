@@ -1,0 +1,38 @@
+﻿FROM python:3.11-slim as builder
+
+# ARG para recibir la URL durante el build
+ARG REFLEX_API_URL=http://localhost:8001
+ENV REFLEX_API_URL=$REFLEX_API_URL
+
+RUN apt-get update && apt-get install -y \
+    curl \
+    unzip \
+    git \
+    && curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
+    && apt-get install -y nodejs \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+ENV PYTHONPATH=/app
+ENV TELEMETRY_ENABLED=false
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV NODE_OPTIONS="--max-old-space-size=2048"
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY . .
+
+RUN reflex init
+RUN reflex export --frontend-only
+RUN mkdir -p /app/public && unzip frontend.zip -d /app/public
+
+# Etapa final de Nginx
+FROM nginx:alpine
+COPY --from=builder /app/public /usr/share/nginx/html
+# Copiar la configuración personalizada de Nginx para evitar la pantalla en blanco por rutas
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]
