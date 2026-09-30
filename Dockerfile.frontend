@@ -1,8 +1,8 @@
 ﻿FROM python:3.11-slim as builder
 
 # ARG para recibir la URL durante el build
-ARG API_URL=http://localhost:8001
-ENV API_URL=$API_URL
+ARG REFLEX_API_URL=http://localhost:8001
+ENV REFLEX_API_URL=$REFLEX_API_URL
 
 RUN apt-get update && apt-get install -y \
     curl \
